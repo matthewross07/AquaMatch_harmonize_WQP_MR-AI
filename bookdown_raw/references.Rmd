@@ -10,17 +10,27 @@ always_allow_html: true
 
 Avouris, D. M., E. L. Hestir, J. Fleck, J. A. Hansen, and B. A. Bergamaschi. 2025. An Integrated Sensor Network and Data Driven Approach to Satellite Remote Sensing of Dissolved Organic Matter. Earth and Space Science 12: e2024EA004048. [doi:10.1029/2024EA004048](https://doi.org/10.1029/2024EA004048)
 
+Bertone, E., M. A. Burford, and D. P. Hamilton. 2018. Fluorescence probes for real-time remote cyanobacteria monitoring: A review of challenges and opportunities. Water Research 141: 152--162. <doi:10.1016/j.watres.2018.05.001>
+
 Brezonik, P. L., R. W. Bouchard Jr., J. C. Finlay, C. G. Griffin, L. G. Olmanson, J. P. Anderson, W. A. Arnold, and R. Hozalski. 2019. Color, chlorophyll a, and suspended solids effects on Secchi depth in lakes: implications for trophic state assessment. Ecological Applications 29: e01871. [doi:10.1002/eap.1871](https://doi.org/10.1002/eap.1871)
+
+Chorus, I., and M. Welker (eds.). 2021. Toxic Cyanobacteria in Water: A Guide to Their Public Health Consequences, Monitoring and Management, 2nd edition. CRC Press / World Health Organization.
 
 Davies-Colley, R. J., W. N. Vant, and D. G. Smith. 1993. Colour and Clarity of Natural Waters: Science and Management of Optical Water Quality, Ellis Horwood.
 
 DeCicco, L. and others. 2024. dataRetrieval: R packages for discovering and retrieving water data available from U.S. federal hydrologic web services. [doi:10.5066/P9X4L3GE](https://doi.org/10.5066/P9X4L3GE)
 
+Foster, G. M., J. L. Graham, B. A. Bergamaschi, K. D. Carpenter, B. D. Downing, B. A. Pellerin, S. A. Rounds, and J. F. Saraceno. 2022. Field techniques for the determination of algal pigment fluorescence in environmental waters—Principles and guidelines for instrument and sensor selection, operation, quality assurance, and data reporting. U.S. Geological Survey Techniques and Methods, book 1, chap. D10, 34 p. <https://doi.org/10.3133/tm1D10>
+
 Gieskes, W. W. C., C. Veth, A. Woehrmann, and M. Graefe. 1987. Secchi disc visibility world record shattered. Eos, Transactions American Geophysical Union 68: 123--123. [doi:10.1029/EO068i009p00123-01](https://doi.org/10.1029/EO068i009p00123-01)
 
 Gray, John R., G.D. Glysson, L.M. Turcios, and G. E. Schwarz. "Comparability of Suspended-Sediment Concentration and Total Suspended Solids Data." Report. Water-Resources Investigations Report, 2000. USGS Publications Warehouse. <https://doi.org/10.3133/wri004191>.
 
+Horváth, H., A. W. Kovács, C. Riddick, and M. Présing. 2013. Extraction methods for phycocyanin determination in freshwater filamentous cyanobacteria and their application in a shallow lake. European Journal of Phycology 48: 278--286. <doi:10.1080/09670262.2013.821525>
+
 Hotchkiss, E. R., and T. DelSontro. 2024. Chapter 28 - Organic Carbon Cycling and Ecosystem Metabolism, p. 939--997. In I.D. Jones and J.P. Smol (eds.), Wetzel's Limnology (Fourth Edition). Academic Press.
+
+Kasinak, J.-M. E., B. M. Holt, M. F. Chislock, and A. E. Wilson. 2015. Benchtop fluorometry of phycocyanin as a rapid approach for estimating cyanobacterial biovolume. Journal of Plankton Research 37: 248--257. <doi:10.1093/plankt/fbu096>
 
 Korak, J. A., and G. McKay. 2024. Meta-Analysis of Optical Surrogates for the Characterization of Dissolved Organic Matter. Environ. Sci. Technol. 58: 7380–7392. [doi:10.1021/acs.est.3c10627](https://doi.org/10.1021/acs.est.3c10627)
 
@@ -34,10 +44,20 @@ National Water Quality Monitoring Council, United States Geological Survey (USGS
 
 North American Lake Management Society (NALMS). Secchi Records. <https://www.nalms.org/secchidipin/monitoring-methods/the-secchi-disk/secchi-records/>. Accessed 2024-09-17.
 
+Otsuki, A., T. Omi, S. Hashimoto, M. Aizaki, and N. Takamura. 1994. HPLC fluorometric determination of natural phytoplankton phycocyanin and its usefulness as cyanobacterial biomass in highly eutrophic shallow lake. Water, Air, and Soil Pollution 76: 383--396. <doi:10.1007/BF00479712>
+
+Randolph, K., J. Wilson, L. Tedesco, L. Li, D. L. Pascual, and E. Soyeux. 2008. Hyperspectral remote sensing of cyanobacteria in turbid productive water using optically active pigments, chlorophyll *a* and phycocyanin. Remote Sensing of Environment 112: 4009--4019. <doi:10.1016/j.rse.2008.06.002>
+
 Ross, M. R. V., S. N. Topp, A. P. Appling, X. Yang, C. Kuhn, D. Butman, M. Simard, and T. M. Pavelsky. 2019. AquaSat: A Data Set to Enable Remote Sensing of Water Quality for Inland Waters. Water Resources Research 55: 10012--10025. [doi:10.1029/2019WR024883](https://doi.org/10.1029/2019WR024883)
 
+Simis, S. G. H., S. W. M. Peters, and H. J. Gons. 2005. Remote sensing of the cyanobacterial pigment phycocyanin in turbid inland water. Limnology and Oceanography 50: 237--245. <doi:10.4319/lo.2005.50.1.0237>
+
 Teucher, A. 2023. lutz: Look Up Time Zones of Point Coordinates. R package version 0.3.2, <https://CRAN.R-project.org/package=lutz>.
+
+Watras, C. J., K. A. Morrison, J. L. Rubsam, P. C. Hanson, A. J. Watras, G. D. LaLiberte, and P. Milewski. 2017. A temperature compensation method for chlorophyll and phycocyanin fluorescence sensors in freshwater. Limnology and Oceanography: Methods 15: 642--652. <doi:10.1002/lom3.10188>
 
 Wetzel, R. G. 2024. Wetzel's limnology: lake and river ecosystems, Fourth edition. I.D. Jones and J.P. Smol (eds.). Academic Press, an imprint of Elsevier.
 
 Yates, C. A. and others. 2023. Determining patterns in the composition of dissolved organic matter in fresh waters according to land use and management. Biogeochemistry 164: 143–162. [doi:10.1007/s10533-022-00964-2](https://doi.org/10.1007/s10533-022-00964-2)
+
+Zamyadi, A., N. McQuaid, M. Prévost, and S. Dorner. 2012. Monitoring of potentially toxic cyanobacteria using an online multi-probe in drinking water sources. Journal of Environmental Monitoring 14: 579--588. <doi:10.1039/c1em10819k>

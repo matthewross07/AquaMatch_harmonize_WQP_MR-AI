@@ -21,6 +21,7 @@ tar_source(files = c(
   "3d_harmonize_sdd.R",
   "3e_harmonize_tss.R",
   "3f_harmonize_cdom.R",
+  "3g_harmonize_phyco.R",
   "create_bookdown.R"))
 
 # The list of targets/steps
@@ -32,7 +33,7 @@ config_targets <- list(
   tar_target(
     name = p0_harmonization_config,
     # The config package does not like to be used with library()
-    command = config::get(config = "admin_update"),
+    command = config::get(config = "local_mode"),
     cue = tar_cue("always")
   ),
   
@@ -71,18 +72,29 @@ config_targets <- list(
     name = p0_tc_output_path,
     command = paste0(p0_harmonization_config$drive_project_folder,
                      "true_color/")
-  ), 
+  ),
+
+  tar_target(
+    name = p0_phyco_output_path,
+    command = paste0(p0_harmonization_config$drive_project_folder,
+                     "phycocyanin/")
+  ),
   
   # Check for Google Drive folder for harmonized file output, create it if it
   # doesn't exist
   tar_target(
     name = p0_check_drive_parent_folder,
-    command = tryCatch({
-      drive_auth(p0_harmonization_config$google_email)
-      drive_ls(p0_harmonization_config$drive_project_folder)
-    }, error = function(e) {
-      drive_mkdir(str_sub(p0_harmonization_config$drive_project_folder, 1, -2))  
-    }),
+    command = if (isTRUE(p0_harmonization_config$local_drive)) {
+      dir.create(p0_harmonization_config$drive_project_folder,
+                 recursive = TRUE, showWarnings = FALSE)
+    } else {
+      tryCatch({
+        drive_auth(p0_harmonization_config$google_email)
+        drive_ls(p0_harmonization_config$drive_project_folder)
+      }, error = function(e) {
+        drive_mkdir(str_sub(p0_harmonization_config$drive_project_folder, 1, -2))  
+      })
+    },
     packages = "googledrive",
     cue = tar_cue("always"),
     error = "stop"
@@ -219,6 +231,33 @@ config_targets <- list(
     cue = tar_cue("always"),
     error = "stop"
   ),
+
+  # Check for phycocyanin subfolder, create if not present
+  tar_target(
+    name = p0_check_phyco_drive,
+    command = {
+      p0_check_drive_parent_folder
+      if (isTRUE(p0_harmonization_config$local_drive)) {
+        clean_dir <- sub("/+$", "", p0_phyco_output_path)
+        dir.create(clean_dir, recursive = TRUE, showWarnings = FALSE)
+        dir.create(file.path(clean_dir, "stable"), recursive = TRUE, showWarnings = FALSE)
+      } else {
+        tryCatch({
+          drive_auth(p0_harmonization_config$google_email)
+          drive_ls(p0_phyco_output_path)
+        }, error = function(e) {
+          drive_mkdir(name = "phycocyanin",
+                      path = p0_harmonization_config$drive_project_folder)
+          drive_mkdir(name = "stable",
+                      path = paste0(p0_harmonization_config$drive_project_folder,
+                                    "phycocyanin"))
+        })
+      }
+    },
+    packages = "googledrive",
+    cue = tar_cue("always"),
+    error = "stop"
+  ),
   
   
   # Import targets from the previous pipeline -------------------------------
@@ -298,6 +337,14 @@ config_targets <- list(
     cue = tar_cue("always"),
     read = read_csv(file = !!.x)
   ),
+
+  tar_file_read(
+    name = p2_phyco_drive_ids,
+    command = paste0(p0_AquaMatch_download_WQP_directory,
+                     "2_download/out/phyco_drive_ids.csv"),
+    cue = tar_cue("always"),
+    read = read_csv(file = !!.x)
+  ),
   
   
   # Download files from Google Drive ----------------------------------------
@@ -310,7 +357,8 @@ config_targets <- list(
                             local_folder = "3_harmonize/in",
                             stable = p0_harmonization_config$general_use_stable, 
                             google_email = p0_harmonization_config$google_email,
-                            stable_date = p0_harmonization_config$general_stable_date),
+                            stable_date = p0_harmonization_config$general_stable_date,
+                            local_drive = isTRUE(p0_harmonization_config$local_drive)),
     packages = c("tidyverse", "googledrive")
   ), 
   
@@ -384,6 +432,19 @@ config_targets <- list(
                             stable = p0_harmonization_config$tc_use_stable, 
                             google_email = p0_harmonization_config$google_email,
                             stable_date = p0_harmonization_config$tc_stable_date),
+    packages = c("tidyverse", "googledrive")
+  ),
+
+  # Phycocyanin
+  tar_target(
+    name = p1_wqp_params_phyco,
+    command = retrieve_data(target = "p1_wqp_params_phyco",
+                            id_df = p2_phyco_drive_ids,
+                            local_folder = "3_harmonize/in",
+                            stable = p0_harmonization_config$phyco_use_stable,
+                            google_email = p0_harmonization_config$google_email,
+                            stable_date = p0_harmonization_config$phyco_stable_date,
+                            local_drive = isTRUE(p0_harmonization_config$local_drive)),
     packages = c("tidyverse", "googledrive")
   ), 
   
@@ -459,6 +520,19 @@ config_targets <- list(
                             stable_date = p0_harmonization_config$tc_stable_date),
     packages = c("tidyverse", "googledrive")
   ),
+
+  # Phycocyanin
+  tar_target(
+    name = p1_char_names_crosswalk_phyco,
+    command = retrieve_data(target = "p1_char_names_crosswalk_phyco",
+                            id_df = p2_phyco_drive_ids,
+                            local_folder = "3_harmonize/in",
+                            stable = p0_harmonization_config$phyco_use_stable,
+                            google_email = p0_harmonization_config$google_email,
+                            stable_date = p0_harmonization_config$phyco_stable_date,
+                            local_drive = isTRUE(p0_harmonization_config$local_drive)),
+    packages = c("tidyverse", "googledrive")
+  ),
   
   # Inventory info from WQP
   # Chl
@@ -532,6 +606,19 @@ config_targets <- list(
                             stable_date = p0_harmonization_config$tc_stable_date),
     packages = c("tidyverse", "googledrive")
   ),
+
+  # Phycocyanin
+  tar_target(
+    name = p1_wqp_inventory_aoi_phyco,
+    command = retrieve_data(target = "p1_wqp_inventory_aoi_phyco",
+                            id_df = p2_phyco_drive_ids,
+                            local_folder = "3_harmonize/in",
+                            stable = p0_harmonization_config$phyco_use_stable,
+                            google_email = p0_harmonization_config$google_email,
+                            stable_date = p0_harmonization_config$phyco_stable_date,
+                            local_drive = isTRUE(p0_harmonization_config$local_drive)),
+    packages = c("tidyverse", "googledrive")
+  ),
   
   # Site counts
   # Chl
@@ -603,6 +690,19 @@ config_targets <- list(
                             stable = p0_harmonization_config$tc_use_stable, 
                             google_email = p0_harmonization_config$google_email,
                             stable_date = p0_harmonization_config$tc_stable_date),
+    packages = c("tidyverse", "googledrive")
+  ),
+
+  # Phycocyanin
+  tar_target(
+    name = p2_site_counts_phyco,
+    command = retrieve_data(target = "p2_site_counts_phyco",
+                            id_df = p2_phyco_drive_ids,
+                            local_folder = "3_harmonize/in",
+                            stable = p0_harmonization_config$phyco_use_stable,
+                            google_email = p0_harmonization_config$google_email,
+                            stable_date = p0_harmonization_config$phyco_stable_date,
+                            local_drive = isTRUE(p0_harmonization_config$local_drive)),
     packages = c("tidyverse", "googledrive")
   ),
   
@@ -689,6 +789,21 @@ config_targets <- list(
                             stable_date = p0_harmonization_config$tc_stable_date),
     packages = c("tidyverse", "googledrive", "feather"),
     format = "feather"
+  ),
+
+  # Phycocyanin
+  tar_target(
+    name = p2_wqp_data_aoi_phyco,
+    command = retrieve_data(target = "p2_wqp_data_aoi_phyco_anon",
+                            id_df = p2_phyco_drive_ids,
+                            local_folder = "3_harmonize/in",
+                            file_type = ".feather",
+                            stable = p0_harmonization_config$phyco_use_stable,
+                            google_email = p0_harmonization_config$google_email,
+                            stable_date = p0_harmonization_config$phyco_stable_date,
+                            local_drive = isTRUE(p0_harmonization_config$local_drive)),
+    packages = c("tidyverse", "googledrive", "feather"),
+    format = "feather"
   )
   
 )
@@ -702,4 +817,5 @@ c(config_targets,
   p3_sdd_targets_list,
   p3_tss_targets_list,
   p3_cdom_targets_list,
+  p3_phyco_targets_list,
   bookdown_targets_list)

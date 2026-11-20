@@ -1,0 +1,16 @@
+ResultMeasure.MeasureUnitCode,harmonized_units,conversion
+mg/l,ug/L,1000
+mg/L,ug/L,1000
+ppm,ug/L,1000
+ug/l,ug/L,1
+ug/L,ug/L,1
+mg/m3,ug/L,1
+ppb,ug/L,1
+mg/cm3,ug/L,1000000
+ug/ml,ug/L,1000
+ug/mL,ug/L,1000
+RFU,RFU,1
+IVFU,IVFU,1
+#/mL,#/mL,1
+#/ml,#/mL,1
+cells/mL,#/mL,1

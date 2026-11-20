@@ -1,6 +1,8 @@
-## AquaSat v2::AquaMatch
+## AquaSat v2::AquaMatch (MR-AI Fork)
 
-Primary repository contact: Matthew Brousil (matthew.brousil AT colostate.edu)
+Experimental MR-AI fork (`matthewross07/AquaMatch_harmonize_WQP_MR-AI`) of [AquaSat/AquaMatch_harmonize_WQP](https://github.com/AquaSat/AquaMatch_harmonize_WQP), extending the AquaMatch WQP harmonization and tiering workflow for **phycocyanin** (`3g_harmonize_phyco.R`, `3_harmonize/src/harmonize_phyco.R`) and adding a `local_mode` configuration profile (`../drive_mirror/aquamatch_harmonize_wqp/`) paired with `AquaMatch_download_WQP_MR-AI`.
+
+Primary upstream repository contact: Matthew Brousil (matthew.brousil AT colostate.edu)
 
 This repository is covered by the MIT use license. We request that all downstream uses of this work be available to the public when possible.
 

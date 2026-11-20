@@ -124,6 +124,9 @@ plot_tier_maps <- function(dataset, param_name, map_crs = 9311, flip_facets = FA
         parameter == "Absorption spectral slope, 400 to 500 nm" ~ "Slope 400-500 nm",
         parameter == "Absorption spectral slope, 412 to 600 nm" ~ "Slope 412-600 nm", 
         parameter == "Absorption spectral slope, 412 to 676 nm" ~ "Slope 412-676 nm",
+        parameter == "Phycocyanin" ~ "Phycocyanin (ug/L)",
+        parameter == "Phycocyanin relative fluorescence" ~ "PC Rel. Fluor.",
+        parameter == "Phycocyanin cell density" ~ "PC Cell Density",
         .default = parameter
       )
     )

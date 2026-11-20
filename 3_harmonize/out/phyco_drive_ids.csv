@@ -1,0 +1,7 @@
+name,id
+p3_documented_drops_phyco.rds,../drive_mirror/aquamatch_harmonize_wqp/phycocyanin/p3_documented_drops_phyco.rds
+p3_phyco_agg_harmonized_feather.rds,../drive_mirror/aquamatch_harmonize_wqp/phycocyanin/p3_phyco_agg_harmonized_feather.rds
+p3_phyco_harmonized_site_info.rds,../drive_mirror/aquamatch_harmonize_wqp/phycocyanin/p3_phyco_harmonized_site_info.rds
+p3_documented_drops_phyco_20261120.rds,../drive_mirror/aquamatch_harmonize_wqp/phycocyanin/stable/p3_documented_drops_phyco_20261120.rds
+p3_phyco_agg_harmonized_feather_20261120.rds,../drive_mirror/aquamatch_harmonize_wqp/phycocyanin/stable/p3_phyco_agg_harmonized_feather_20261120.rds
+p3_phyco_harmonized_site_info_20261120.rds,../drive_mirror/aquamatch_harmonize_wqp/phycocyanin/stable/p3_phyco_harmonized_site_info_20261120.rds

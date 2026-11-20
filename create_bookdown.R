@@ -28,6 +28,9 @@ bookdown_targets_list <- list(
   
   tar_file(cdom_harmonization_rmd,
            "bookdown_raw/08_cdom_harmonization.Rmd"),
+
+  tar_file(phyco_harmonization_rmd,
+           "bookdown_raw/09_phyco_harmonization.Rmd"),
   
   tar_file(notes_rmd,
            "bookdown_raw/notes.Rmd"),
@@ -60,7 +63,8 @@ bookdown_targets_list <- list(
           p2_site_counts_doc,
           p2_site_counts_sdd,
           p2_site_counts_tss,
-          p2_site_counts_cdom
+          p2_site_counts_cdom,
+          p2_site_counts_phyco
         ),
         global_grid = p1_global_grid,
         yaml_contents = list(
@@ -68,7 +72,8 @@ bookdown_targets_list <- list(
           doc = p1_wqp_params_doc$doc,
           sdd = p1_wqp_params_sdd$sdd,
           tss = p1_wqp_params_tss$tss,
-          cdom = p1_wqp_params_cdom$cdom
+          cdom = p1_wqp_params_cdom$cdom,
+          phycocyanin = p1_wqp_params_phyco$phycocyanin
         )),
       output_file = "02_download",
       output_dir = "chapters") %>%
@@ -164,6 +169,26 @@ bookdown_targets_list <- list(
     packages = c("tidyverse", "bookdown", "ggrepel", "viridis", "kableExtra",
                  "rmarkdown", "scales")
   ),
+
+  tar_target(
+    phyco_harmonization_report,
+    render(
+      phyco_harmonization_rmd,
+      params = list(
+        documented_drops = p3_documented_drops_phyco,
+        phyco_chars = p1_wqp_params_phyco$phycocyanin,
+        tiering_record = p3_phyco_tiering_record,
+        param_drop_record = p3_phyco_param_drop_record,
+        phyco_unit_table = read_csv("3_harmonize/out/phyco_unit_table.csv",
+                                    show_col_types = FALSE),
+        phyco_misc_flag_table = p3_phyco_misc_flag_table),
+      output_file = "09_phyco_harmonization",
+      output_dir = "chapters") %>%
+      change_ext(inext = "md", outext = "Rmd"),
+    format = "file",
+    packages = c("tidyverse", "bookdown", "ggrepel", "viridis", "kableExtra",
+                 "rmarkdown", "scales")
+  ),
   
   tar_target(
     notes,
@@ -200,6 +225,7 @@ bookdown_targets_list <- list(
                               sdd_harmonization_report,
                               tss_harmonization_report,
                               cdom_harmonization_report,
+                              phyco_harmonization_report,
                               notes,
                               references)),
     cue = tar_cue("always")

@@ -1,0 +1,15 @@
+step,reason,short_reason,number_dropped,n_rows,order
+phyco harmonization,Starting dataset,Start,0,154498,0
+phyco harmonization,"Filtered for water media, phycocyanin pigment targets, and valid stats",Target water media & PC filters,82840,71658,1
+phyco harmonization,Dropped rows containing fail-related language,"Fails, etc.",524,71134,2
+phyco harmonization,Dropped rows while cleaning MDLs,Clean MDLs,0,71134,3
+phyco harmonization,Dropped rows while cleaning approximate values,Clean approximates,0,71134,4
+phyco harmonization,Dropped rows while cleaning 'greater than' values,Greater thans,0,71134,5
+phyco harmonization,Dropped unresolved NAs and negative values,Unresolved NAs,4224,66910,6
+phyco harmonization,Dropped rows while harmonizing units,Harmonize units,0,66910,7
+phyco harmonization,Dropped rows while cleaning depths,Clean depths,0,66910,8
+phyco harmonization,Dropped rows while filtering and tiering analytical methods,Analytical methods,1,66909,9
+phyco harmonization,Dropped rows while assigning field flags,Field flagging,0,66909,10
+phyco harmonization,Dropped rows while assigning misc flags,Misc flagging,0,66909,11
+phyco harmonization,Dropped rows with unrealistic values,Unrealistic values,8,66901,12
+phyco harmonization,Dropped rows while aggregating simultaneous records,Simultaneous records,3760,63141,13

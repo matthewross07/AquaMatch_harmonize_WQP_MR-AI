@@ -1,0 +1,4 @@
+reason,short_reason,number_dropped,n_rows,order,step
+Starting dataset,Start,0,157231,0,phycocyanin pre-harmonization
+Removed missing results,Remove missing,1967,155264,1,phycocyanin pre-harmonization
+Keep only status = accepted/final/historical/validated/preliminary/NA,Finalized statuses,766,154498,2,phycocyanin pre-harmonization

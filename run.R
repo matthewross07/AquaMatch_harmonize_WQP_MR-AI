@@ -61,7 +61,7 @@ if ( !("ggrepel" %in% installed.packages() ) ){
                             version = "0.9.4",
                             repos = "http://cran.us.r-project.org")
 } else if ( ( "ggrepel" %in% installed.packages() ) & 
-            ( packageVersion("ggrepel") != "0.9.4" )  ){
+            ( packageVersion("ggrepel") == "0.9.5" )  ){
   print("Installing package version 0.9.4 of ggrepel.")
   
   package_installer("devtools")

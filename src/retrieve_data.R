@@ -25,23 +25,26 @@
 #' ISO 8601 "basic" format: YYYYMMDD) that should be used to identify the
 #' correct file version on Google Drive.
 #' 
+#' @param local_drive Logical; if TRUE (or if the resolved ID is a local file
+#' path), copy directly from the local filesystem mirror instead of calling
+#' Google Drive.
+#' 
 #' @returns 
-#' The dataset after being downloaded and read into the pipeline from Google Drive.
+#' The dataset after being downloaded and read into the pipeline from Google Drive
+#' or the local filesystem mirror.
 #' 
 retrieve_data <- function(target, id_df, local_folder, stable, 
-                          google_email, file_type = ".rds", stable_date){
-  
-  # Authorize using the google email provided
-  drive_auth(google_email)
+                          google_email, file_type = ".rds", stable_date,
+                          local_drive = FALSE){
   
   # Local file download location
   local_path <- file.path(local_folder, paste0(target, file_type))
   
   # Make the directory if it does not exist:
-  if(!dir.exists(local_folder)) {dir.create(local_folder)}
+  if(!dir.exists(local_folder)) {dir.create(local_folder, recursive = TRUE)}
   
   # Get file contents of the Google Drive folder specified. If stable == TRUE
-  # then append "stable/" to go to the subfolder for stable products.
+  # then append stable_date to match the dated snapshot filename.
   if(stable){
     
     file_name <- paste0(target, "_", stable_date, file_type)
@@ -52,16 +55,33 @@ retrieve_data <- function(target, id_df, local_folder, stable,
     
   }
   
-  # Filter the contents to the file requested and obtain its ID
-  drive_file_id <- id_df %>%
+  # Filter the contents to the file requested and obtain its ID or local path
+  raw_id <- id_df %>%
     filter(name == file_name) %>%
-    pull(id) %>%
-    as_id(.)
+    pull(id)
   
-  # Run the download
-  drive_download(file = drive_file_id,
-                 path = local_path,
-                 overwrite = TRUE)
+  if (length(raw_id) == 0) {
+    stop(sprintf("Could not find file '%s' in id_df.", file_name))
+  }
+  raw_id <- raw_id[1]
+  
+  if (isTRUE(local_drive) || file.exists(raw_id)) {
+    if (!file.exists(raw_id)) {
+      stop(sprintf("Local mirror file not found: %s", raw_id))
+    }
+    file.copy(from = raw_id, to = local_path, overwrite = TRUE)
+  } else {
+    if (is.null(google_email) || !nzchar(google_email)) {
+      drive_deauth()
+    } else {
+      drive_auth(google_email)
+    }
+    
+    # Run the download
+    drive_download(file = as_id(raw_id),
+                   path = local_path,
+                   overwrite = TRUE)
+  }
   
   # Read dataset into pipeline
   if(file_type == ".rds"){

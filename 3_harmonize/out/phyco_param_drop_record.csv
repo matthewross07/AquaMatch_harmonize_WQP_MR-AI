@@ -1,0 +1,6 @@
+CharacteristicName,ResultAnalyticalMethod.MethodName,USGSPCode,ResultAnalyticalMethod.MethodIdentifier,ResultAnalyticalMethod.MethodIdentifierContext,ResultMeasure.MeasureUnitCode,ResultSampleFractionText,n
+Phycocyanin (probe),NA,NA,NA,NA,ug/L,NA,60113
+Phycocyanin (probe relative fluorescence),Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,RFU,NA,10245
+Phycocyanin (probe relative fluorescence),NA,NA,NA,NA,RFU,NA,9728
+Phycocyanin,NA,NA,NA,NA,ug/L,NA,2494
+Phycocyanin,Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,RFU,NA,260

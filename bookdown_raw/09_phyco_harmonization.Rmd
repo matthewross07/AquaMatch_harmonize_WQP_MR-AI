@@ -1,0 +1,932 @@
+---
+output:
+  github_document:
+    html_preview: false
+params:
+  documented_drops: NA
+  phyco_chars: NA
+  tiering_record: NA
+  param_drop_record: NA
+  phyco_unit_table: NA
+  phyco_misc_flag_table: NA
+always_allow_html: true
+---
+
+<!-- Image settings -->
+
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(dev = "png",
+                      dpi = 300)
+```
+
+# Phycocyanin harmonization process
+
+```{r echo=FALSE}
+documented_drops <- params$documented_drops %>%
+  filter(grepl(pattern = "phyco", x = step, ignore.case = TRUE),
+         !((step == "phyco harmonization") & short_reason == "Start"))
+phyco_chars <- params$phyco_chars
+tiering_record <- params$tiering_record
+param_drop_record <- params$param_drop_record
+phyco_unit_table <- params$phyco_unit_table
+phyco_misc_flag_table <- params$phyco_misc_flag_table
+```
+
+Following the completion of the `{dataRetrieval}` download process described previously, the pipeline contains raw WQP data for each parameter of interest. Before harmonizing each parameter, we run through a series of universal "pre-harmonization" steps to ensure consistent column types, site metadata, and time zones across the dataset.
+
+Phycocyanin is a water-soluble phycobiliprotein accessory pigment characteristic of freshwater cyanobacteria, exhibiting an in-water absorption maximum near 620 nm and fluorescence emission near 645--650 nm (Simis et al., 2005; Randolph et al., 2008; Chorus and Welker, 2021). The sections below walk through the pre-harmonization and harmonization steps for phycocyanin, explaining how incompatible measurement scales (mass concentration, relative probe fluorescence, and sensor-estimated cell density), misfiled accessory pigments, daily statistical summaries, and analytical methodologies are separated, cleaned, tiered, and flagged.
+
+```{r echo = FALSE}
+# Order pre-harmonization steps ahead of harmonization steps
+documented_drops <- bind_rows(
+  documented_drops %>%
+    filter(grepl(pattern = "pre-harmonization", x = step, ignore.case = TRUE)) %>%
+    arrange(order),
+  documented_drops %>%
+    filter(!grepl(pattern = "pre-harmonization", x = step, ignore.case = TRUE)) %>%
+    arrange(order)
+) %>%
+  mutate(reorder = row_number())
+
+step_order_rev <- max(documented_drops$reorder):min(documented_drops$reorder)
+max_steps <- max(documented_drops$reorder)
+
+step_data <- documented_drops %>%
+  mutate(scaled = scale(n_rows, center = FALSE)) %>%
+  mutate(reorder = factor(reorder, levels = step_order_rev),
+         rows_label = paste0(short_reason, ":  ", n_rows, " rows"))
+```
+
+## Pre-harmonization of the raw phycocyanin WQP dataset
+
+```{r echo=FALSE}
+step_counter <- 1
+
+step_1_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+```
+
+At the start of the pre-harmonization process the raw phycocyanin WQP dataset contains `r step_1_rows` rows.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Missing results
+
+```{r echo = FALSE}
+step_counter <- 2
+
+step_2_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_2_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Next, rows flagged as truly missing results are dropped based on `"analysis lost"`, `"not analyzed"`, `"not recorded"`, `"not collected"`, or `"no measurement taken"` in `ResultCommentText` when no measurement value is available.
+
+This step removes `r step_2_dropped` rows of data, leaving `r step_2_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Filter status
+
+```{r echo = FALSE}
+step_counter <- 3
+
+step_3_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_3_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+The final step in pre-harmonization filters `ResultStatusIdentifier` to retain only records with status:
+
++ `"Accepted"`
++ `"Final"`
++ `"Historical"`
++ `"Validated"`
++ `"Preliminary"`
++ `NA`
+
+Records marked `"Provisional"` or other non-finalized statuses are dropped (`r step_3_dropped` rows), leaving `r step_3_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+## Harmonization-ready phycocyanin dataset
+
+Once ready for harmonization, the phycocyanin WQP dataset contains the following `CharacteristicName`s: `r phyco_chars`.
+
+<img src="3_harmonize/out/phyco_stacked_char_names.png" alt="Stacked bar chart with counts of phycocyanin CharacteristicName records" width="650"/>
+
+<br>
+
+### Filter media, non-target pigments, and daily summaries; categorize parameters
+
+```{r echo = FALSE}
+step_counter <- 4
+
+step_4_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_4_dropped <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = number_dropped / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+```
+
+In this step, we first recover empty `ResultMeasure.MeasureUnitCode` entries from `DetectionQuantitationLimitMeasure.MeasureUnitCode` when non-detect rows report their units only in the detection-limit metadata. We then apply three domain-specific filters before assigning phycocyanin parameter categories:
+
+1. **Water media filtering**: `ActivityMediaSubdivisionName` must be `"Surface Water"`, `"Water"`, `"Estuary"`, or `NA`, removing `"Ocean Water"`.
+2. **Non-target pigment exclusion**: WQP submissions occasionally file accessory phycobiliprotein or chlorophyll fluorescence data under phycocyanin `CharacteristicName`s. In particular, estuarine probe records annotated `"YSI - BGA-PE"` (phycoerythrin) in `ResultCommentText` or `ResultAnalyticalMethod.MethodName`, as well as USGS parameter codes for phycoerythrin, allophycocyanin, or `fChl`, are excluded.
+3. **Daily statistical summary filtering**: Continuous water quality sondes frequently archive multiple daily summary statistics at the same station and date (`"Minimum"`, `"Maximum"`, `"Delta"`, `"Median"`, and `"Mean"`). Including extremes alongside central tendencies would collapse spreads into site averages during downstream aggregation, so we drop non-central statistical summaries while retaining instantaneous (`NA`) and daily `"Mean"` records (which are subsequently flagged in `misc_flag`).
+
+Because optical *in vivo* relative fluorescence units (`RFU`/`IVFU`) and sensor-estimated cell counts (`#/mL`) cannot be converted to phycocyanin mass concentration (`ug/L`) without empirical, taxon- and instrument-specific calibrations (Bertone et al., 2018; Foster et al., 2022), surviving records are separated into three incompatible `parameter` groups:
+
+<!-- Table created with https://www.tablesgenerator.com/markdown_tables -->
+
+| Parameter | Definition |
+|---|---|
+| Phycocyanin | Phycocyanin mass concentration records with `ResultMeasure.MeasureUnitCode` in `"ug/l"`, `"ug/L"`, `"mg/m3"`, `"ppb"`, `"mg/l"`, `"mg/L"`, `"ppm"`, `"ug/ml"`, `"ug/mL"`, or `"mg/cm3"` |
+| Phycocyanin relative fluorescence | Optical *in vivo* probe relative fluorescence records with units `"RFU"` or `"IVFU"` |
+| Phycocyanin cell density | Cyanobacterial cell-density equivalents derived from phycocyanin assays or calibrated sensors with units `"#/mL"`, `"#/ml"`, or `"cells/mL"` |
+
+<br>
+
+Records excluded by the media, non-target pigment, or daily summary statistic filters are dropped (`n = ` `r comma(sum(param_drop_record$n))`). A summary of excluded records is shown below:
+
+```{r fig.alt="Table containing combinations of phycocyanin record metadata dropped during media, non-target pigment, and statistic filtering."}
+param_drop_record %>%
+  kable() %>%
+  kable_paper() %>%
+  scroll_box(width = "750px", height = "450px")
+```
+
+<br>
+
+Below is a stacked barplot of the dataset organized by the assigned `parameter` column:
+
+<img src="3_harmonize/out/phyco_stacked_param_names.png" alt="Stacked bar chart with counts of phycocyanin parameter records" width="650"/>
+
+`r step_4_dropped` rows are removed, leaving `r step_4_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Document and remove fails
+
+```{r echo = FALSE}
+step_counter <- 5
+
+step_5_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_5_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+In this step we filter out records containing failure or sensor-malfunction language across `ActivityCommentText`, `ResultLaboratoryCommentText`, `ResultCommentText`, `ResultDetectionConditionText`, and `ResultMeasureValue_original` (the character copy of `ResultMeasureValue` prior to numeric coercion).
+
+After auditing phycocyanin-specific WQP comment strings to exclude benign environmental notes (such as `"DO probe unstable"`, `"warm day"`, `"broken clouds"`, or unrelated selenium/pH regulatory exceedances), we match the following case-insensitive phrases: `"beyond accept"`, `"cancelled"`, `"contaminat"`, `"error"`, `"fail"`, `"improper"`, `"instrument down"`, `"interference"`, `"invalid"`, `"no result"`, `"no sample"`, `"no test"`, `"not accept"`, `"outside of accept"`, `"problem"`, `"questionable"`, `"suspect"`, `"unable"`, `"violation"`, `"reject"`, `"no data"`, `"value extrapolated"`, `"criteria exceed"`, `"biased"`, `"parameter not required"`, `"not visited"`, `"warm sample"`, `"broken bottle"`, `"broken cooler"`, `"received broken"`, `"broken sensor"`, `"time not documented"`, `"wiper stopped"`, `"wiper not parked"`, `"sonde out of water"`, `"sonde stopped recording"`, `"stopped working"`, `"not working"`, `"off scale"`, and `"censored"`.
+
+Below are pie charts summarizing failure phrase detections for each column that contained matches (note that detections are not mutually exclusive):
+
+<br>
+
+#### ActivityCommentText fail detects
+
+<img src="3_harmonize/out/phyco_ActivityCommentText_fail_pie.png" alt="ActivityCommentText failure detects" width="650"/>
+
+#### ResultCommentText fail detects
+
+<img src="3_harmonize/out/phyco_ResultCommentText_fail_pie.png" alt="ResultCommentText failure detects" width="650"/>
+
+#### ResultLaboratoryCommentText fail detects
+
+<img src="3_harmonize/out/phyco_ResultLaboratoryCommentText_fail_pie.png" alt="ResultLaboratoryCommentText failure detects" width="650"/>
+
+#### ResultMeasureValue_original fail detects
+
+<img src="3_harmonize/out/phyco_ResultMeasureValue_original_fail_pie.png" alt="ResultMeasureValue_original failure detects" width="650"/>
+
+<br>
+
+`r step_5_dropped` rows are removed after detecting failure-related phrases and `r step_5_rows` rows remain.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Clean MDLs
+
+```{r echo = FALSE}
+step_counter <- 6
+
+step_6_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_6_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Method detection limits (MDLs) are cleaned identically to prior AquaMatch parameters. Where numeric values are `NA`, non-detect indicators (`"non-detect"`, `"not detect"`, `"non detect"`, `"undetect"`, `"below"`, `"Present <QL"`, `"ND"`, `"nd"`) trigger substitution from `DetectionQuantitationLimitMeasure.MeasureValue`, and `<` numeric qualifiers in `ResultMeasureValue_original` are parsed directly. Imputed non-detects are drawn uniformly between `0` and `0.5 * MDL`, while preserving units from `DetectionQuantitationLimitMeasure.MeasureUnitCode` when `ResultMeasure.MeasureUnitCode` is blank.
+
+The `mdl_flag` column records `0` (unadjusted at/above MDL), `1` (imputed using EPA `0` to `0.5 * MDL`), or `2` (reported numeric value below MDL, unadjusted).
+
+This step drops `r step_6_dropped` rows, leaving `r step_6_rows` remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Clean approximate values
+
+```{r echo = FALSE}
+step_counter <- 7
+
+step_7_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_7_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Records with missing numeric `ResultMeasureValue` that contain numeric text and approximation phrases (`"result approx"`, `"RESULT IS APPROX"`, `"value approx"`) are cleaned and flagged (`approx_flag = 1`), while unadjusted rows receive `approx_flag = 0`.
+
+This step drops `r step_7_dropped` rows, leaving `r step_7_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Clean values with "greater than" data
+
+```{r echo = FALSE}
+step_counter <- 8
+
+step_8_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_8_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Similarly, unadjusted records containing `>` qualifiers and numeric text are parsed by stripping `>`, `=`, and `*` characters (`greater_flag = 1`), leaving all other records with `greater_flag = 0`.
+
+`r step_8_dropped` rows are removed, leaving `r step_8_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Drop unresolved NA and negative measurements
+
+```{r echo = FALSE}
+step_counter <- 9
+
+step_9_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_9_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Following non-detect, approximate, and greater-than recovery, remaining unresolved `NA`/`NaN` values and negative measurements (`harmonized_value < 0`, which occur primarily as zero-offset baseline drift on continuous optical sondes) are removed because neither pigment concentrations, positive relative fluorescence, nor cell counts can be physically negative.
+
+`r step_9_dropped` rows are removed, leaving `r step_9_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Harmonize record units
+
+```{r echo = FALSE}
+step_counter <- 10
+
+step_10_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_10_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Each parameter group is converted to a single canonical unit using the conversion table below: mass concentrations (`ug/l`, `ug/L`, `mg/m3`, `ppb`, `mg/L`, `mg/l`, `ppm`, `ug/ml`, `ug/mL`, `mg/cm3`) convert to `"ug/L"`; relative fluorescence units retain `"RFU"` or `"IVFU"`; and cell-density units (`#/mL`, `#/ml`, `cells/mL`) normalize to `"#/mL"`.
+
+```{r echo=FALSE, message = FALSE}
+phyco_unit_table %>%
+  mutate(conversion = as.character(conversion)) %>%
+  kable() %>%
+  kable_paper() %>%
+  kable_styling(full_width = FALSE)
+```
+
+<br>
+
+`r step_10_dropped` rows are removed due to unconvertible unit codes (all surviving rows mapped cleanly onto the unit conversion table), leaving `r step_10_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Clean depth data
+
+```{r echo = FALSE}
+step_counter <- 11
+
+step_11_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_11_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped) %>%
+  round(digits = 1)
+```
+
+The four WQP depth columns are standardized to meters and summarized via `depth_flag` as documented in the *Tiering, flagging, and quality control philosophy* chapter (`0` = no depth, `1` = discrete depth, `2` = integrated top/bottom depths, `3` = both discrete and integrated depths present).
+
+`r step_11_dropped` rows are removed, leaving `r step_11_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Filter and tier methods
+
+```{r echo = FALSE}
+step_counter <- 12
+
+step_12_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_12_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+In preparation for tiering, clearly misassigned non-phycocyanin laboratory methods (e.g., Standard Methods `4500-P B` phosphorus sample preparation) are filtered out. Remaining records are assigned to three analytical method tiers reflecting cross-provider comparability and vulnerability to optical matrix artifacts:
+
+<br>
+
+<!-- Table created with https://www.tablesgenerator.com/markdown_tables -->
+| Tier | Name | Description | Phycocyanin Details |
+|---|---|---|---|
+| 0 | Restrictive | Data that are verifiably self-similar across organizations and time-periods and can be considered highly reliable | Laboratory extractive benchtop fluorometry, spectrophotometry, and HPLC (`ug/L`; e.g., USGS p-code `52905` / `SP012` / `FL083`, `MNPCA` modified Otsuki et al. (1994), `MDEQ_WQ_WQX` HPLC). Cell lysis extracts pigment into solution, eliminating *in vivo* cellular packaging, light history/quenching, and temperature effects (Horváth et al., 2013; Kasinak et al., 2015). |
+| 1 | Narrowed | Data with documented instrumentation/SOPs that may exhibit matrix-dependent bias across deployments | Documented *in situ* optical fluorometric probes/sondes (`YSI EXO`, `YSI 6131`, `Multiparameter Water Quality Sonde`, USGS p-codes `32319`, `32321`, `32329`, `32335`, `95201`--`95204`) and documented optical lab fluorometry/spectrometry lacking explicit extraction confirmation. Subject to inverse temperature quenching (~1% per deg C; Watras et al., 2017), turbidity attenuation, and FDOM/chlorophyll-*a* spectral cross-talk (Zamyadi et al., 2012; Bertone et al., 2018; Foster et al., 2022). |
+| 2 | Inclusive | Records with missing, generic (`LOCAL`, `Unknown`), or misapplied method metadata | Unspecified methods (`NA`), adapted chlorophyll-*a* method identifiers (`445.0` on phycocyanin probes), or unverified probe entries without instrument/SOP metadata. |
+
+<br>
+
+Notice in `3_harmonize/out/phyco_tiering_record.csv` how each unique combination of `CharacteristicName`, analytical method, USGS p-code, unit, and sample fraction maps onto Tiers 0--2:
+
+```{r fig.alt="Table containing combinations of phycocyanin record summary information and corresponding tiers."}
+tiering_record %>%
+  kable() %>%
+  kable_paper() %>%
+  scroll_box(width = "750px", height = "450px")
+```
+
+<br>
+
+The method filtering and tiering step drops `r step_12_dropped` row(s), leaving `r step_12_rows` remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Flag based on field methods
+
+```{r echo = FALSE}
+step_counter <- 13
+
+step_13_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_13_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Next, `field_flag` cross-checks whether sample collection metadata (`ActivityTypeCode`, `SampleCollectionMethod.MethodName`, `SampleCollectionEquipmentName`) and `ResultSampleFractionText` agree with the assigned analytical tier:
+
++ `field_flag = 0` (**Reasonable**): Extractive lab Tier 0 records collected with discrete water-sampling gear (`grab`, `bottle`, `kemmerer`, `van dorn`, `filter`, `Sample-Routine`), or documented optical Tier 1 sonde records with explicit field/sensor metadata (`Field Msr/Obs`, `Probe/Sensor`, `Sonde`) and non-dissolved fraction.
++ `field_flag = 1` (**Suspect**): Tier 0 records reporting sensor/field-only collection, or Tier 1 optical probe records reporting `"Dissolved"` sample fraction or bottle/grab sampling without documented *in situ* sensor deployment.
++ `field_flag = 2` (**Inconclusive**): Tier 2 records or Tier 0/1 records where sample collection metadata are `"Unknown"` or `NA`.
+
+No records are dropped in this step (`r step_13_dropped` rows dropped), leaving `r step_13_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Miscellaneous flag
+
+```{r echo = FALSE}
+step_counter <- 14
+
+step_14_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_14_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+For phycocyanin, `misc_flag` identifies two distinct data conditions that are held out from simultaneous replicate averaging during aggregation so end users can filter them explicitly:
+
++ `misc_flag = 0`: Instantaneous/discrete observations within standard surface-water calibration bounds.
++ `misc_flag = 1`: Continuous sonde daily `"Mean"` summary rows (`StatisticalBaseCode == "Mean"`), distinguishing multi-hour temporal averages from instantaneous point observations.
++ `misc_flag = 2`: Extreme bloom/scum concentrations exceeding standard linear optical calibration bounds (`> 2,000 ug/L`, `> 100 RFU` or `IVFU`, or `> 280,000 #/mL`; Bertone et al., 2018; Foster et al., 2022; Chorus and Welker, 2021). Note that records exceeding both criteria receive `misc_flag = 2`.
+
+| **Parameter** | **Units** | **Flag = 1** | **Flag = 2** |
+|---|---|---|---|
+| Phycocyanin | ug/L | `StatisticalBaseCode == "Mean"` | `> 2,000 ug/L` |
+| Phycocyanin relative fluorescence | RFU, IVFU | `StatisticalBaseCode == "Mean"` | `> 100 RFU` or `> 100 IVFU` |
+| Phycocyanin cell density | #/mL | `StatisticalBaseCode == "Mean"` | `> 280,000 #/mL` |
+
+<br>
+
+```{r echo=FALSE, message = FALSE}
+phyco_misc_flag_table %>%
+  kable() %>%
+  kable_paper() %>%
+  kable_styling(full_width = FALSE)
+```
+
+<br>
+
+`r step_14_dropped` rows are dropped, leaving `r step_14_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Remove unrealistic values
+
+```{r echo = FALSE}
+step_counter <- 15
+
+step_15_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_15_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+Prior to finalizing the dataset, we remove physically impossible bulk-water phycocyanin mass values above `100,000 ug/L` (`100 mg/L` pure phycocyanin protein; reflecting sensor cell-density entries misfiled under `ug/L`) while retaining verified dissolved bloom/scum extracts up to `41,000 ug/L` under `misc_flag = 2`. We also remove any sampling depths `> 592 m`, the maximum lake depth in the United States (Larson, 1972).
+
+`r step_15_dropped` rows are removed, leaving `r step_15_rows` rows remaining.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Aggregate simultaneous records
+
+```{r echo = FALSE}
+step_counter <- 16
+
+step_16_rows <- filter(step_data, reorder == step_counter) %>%
+  mutate(thou_row = n_rows / 1000) %>%
+  pull(thou_row) %>%
+  round(digits = 1) %>%
+  paste0(., " thousand")
+
+step_16_dropped <- filter(step_data, reorder == step_counter) %>%
+  pull(number_dropped)
+```
+
+The final step of phycocyanin harmonization aggregates simultaneous observations (matching across the 26 grouping columns `parameter`, `OrganizationIdentifier`, `MonitoringLocationIdentifier`, `MonitoringLocationTypeName`, `ResolvedMonitoringLocationTypeName`, `ActivityStartDate`, `ActivityStartTime.Time`, `ActivityStartTime.TimeZoneCode`, `harmonized_tz`, `harmonized_local_time`, `harmonized_utc`, `ActivityStartDateTime`, `harmonized_top_depth_value`, `harmonized_top_depth_unit`, `harmonized_bottom_depth_value`, `harmonized_bottom_depth_unit`, `harmonized_discrete_depth_value`, `harmonized_discrete_depth_unit`, `depth_flag`, `mdl_flag`, `approx_flag`, `greater_flag`, `tier`, `field_flag`, `misc_flag`, and `harmonized_units`) into mean values (`harmonized_value`), replicate counts (`harmonized_row_count`), and coefficients of variation (`harmonized_value_cv`), tagged by `subgroup_id` for back-joining with `p3_phyco_preagg_grouped`.
+
+As with CDOM, records with `misc_flag` equal to `1` (daily means) or `2` (extreme bloom/scum values exceeding calibration ceilings) are held out from grouping and re-appended with `NA` in `subgroup_id`, `harmonized_row_count`, and `harmonized_value_cv`.
+
+`r step_16_dropped` rows are aggregated away, leaving `r step_16_rows` rows remaining in the final harmonized phycocyanin dataset.
+
+```{r, fig.cap= "Bar plot showing the row count update for the current harmonization step.", echo = FALSE}
+step_data %>%
+  filter(reorder %in% 1:step_counter) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder, y = scaled, fill = reorder),
+           stat = "identity")  +
+  geom_text_repel(aes(x = reorder, y = 0.1, label = rows_label),
+                  bg.color = "white", bg.r = 0.15,
+                  point.size = NA,
+                  xlim = c(-Inf, Inf),
+                  ylim = c(-Inf, Inf),
+                  nudge_x = 0.1,
+                  hjust = "left") +
+  xlab("Step number") +
+  ylab(NULL) +
+  scale_fill_manual(values = viridis(n = max_steps, direction = -1)[step_counter:1]) +
+  scale_x_discrete(drop = F) +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+```
+
+<br>
+
+### Harmonized phycocyanin
+
+At this point the harmonization of WQP phycocyanin data is complete. The figures below summarize the properties of the final aggregated dataset:
+
+1. Distributions of positive harmonized values and coefficients of variation (CVs) across parameter groups, units, and tiers after simultaneous-record aggregation:
+
+<br>
+
+<img src="3_harmonize/out/phyco_tier_dists_postagg.png" alt="Distribution of phycocyanin values by tier and unit" width="650"/>
+
+<img src="3_harmonize/out/phyco_tier_cv_dists_postagg.png" alt="Distribution of phycocyanin CVs by parameter and tier" width="650"/>
+
+<br>
+
+2. Geographic distribution of phycocyanin records by parameter and tier across the conterminous United States:
+
+<img src="3_harmonize/out/phyco_tier_hex_map.png" alt="Geographic distribution of phycocyanin records by tier in the conterminous US" width="650"/>
+
+<br>
+
+3. Temporal distributions across years, months, and days of the week by parameter and tier:
+
+<img src="3_harmonize/out/phyco_year_tier_chart.png" alt="Temporal distribution of phycocyanin records by tier across years" width="650"/>
+
+<img src="3_harmonize/out/phyco_month_tier_chart.png" alt="Temporal distribution of phycocyanin records by tier across months" width="650"/>
+
+<img src="3_harmonize/out/phyco_wday_tier_chart.png" alt="Temporal distribution of phycocyanin records by tier across days of the week" width="650"/>
+
+<br>
+
+4. Sampling depth distributions (`harmonized_top_depth_value`, `harmonized_bottom_depth_value`, and `harmonized_discrete_depth_value`) by parameter, waterbody type, and tier:
+
+<img src="3_harmonize/out/phyco_tier_top_depth_dist_postagg.png" alt="Distribution of harmonized_top_depth_value by parameter, tier, and location type" width="650"/>
+
+<img src="3_harmonize/out/phyco_tier_bottom_depth_dist_postagg.png" alt="Distribution of harmonized_bottom_depth_value by parameter, tier, and location type" width="650"/>
+
+<img src="3_harmonize/out/phyco_tier_discrete_depth_dist_postagg.png" alt="Distribution of harmonized_discrete_depth_value by parameter, tier, and location type" width="650"/>
+
+<br>

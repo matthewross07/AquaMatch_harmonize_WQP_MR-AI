@@ -44,7 +44,10 @@ p3_targets_list <- list(
       p3_tss_harmonized$compiled_drops_path,
       # CDOM
       p3_wqp_data_aoi_ready_cdom$compiled_drops_path,
-      p3_cdom_harmonized$compiled_drops_path
+      p3_cdom_harmonized$compiled_drops_path,
+      # Phycocyanin
+      p3_wqp_data_aoi_ready_phyco$compiled_drops_path,
+      p3_phyco_harmonized$compiled_drops_path
     ),
     .f = read_csv)
   )

@@ -14,23 +14,50 @@
 #' @param google_email A string containing the gmail address to use for
 #' Google Drive authentication.
 #' 
+#' @param date_stamp Date value or string appended to stable filenames.
+#' 
 #' @param feather Logical value. If TRUE, export the file as a feather file. If
 #' FALSE, then ".rds". Defaults to FALSE.
 #' 
+#' @param local_drive Logical; if TRUE, write directly to the local filesystem
+#' mirror (`drive_path`) instead of uploading to Google Drive.
+#' 
 #' @returns 
-#' Logical
+#' Path to exported file or logical status.
 #' 
 export_single_file <- function(target, drive_path, stable, google_email,
-                               date_stamp, feather = FALSE){
+                               date_stamp, feather = FALSE,
+                               local_drive = FALSE){
   
   # Feather or RDS?
   if(feather){extension <- ".feather"} else {extension <- ".rds"}
   
-  # Authorize using the google email provided
-  drive_auth(google_email)
-  
   # Get target name as a string
   target_string <- deparse(substitute(target))
+  
+  if (isTRUE(local_drive)) {
+    clean_dir <- sub("/+$", "", drive_path)
+    dir.create(clean_dir, recursive = TRUE, showWarnings = FALSE)
+    out_path <- file.path(clean_dir, paste0(target_string, extension))
+    if (feather) {
+      write_feather(x = target, path = out_path)
+    } else {
+      write_rds(x = target, file = out_path)
+    }
+    if (stable) {
+      stable_dir <- file.path(clean_dir, "stable")
+      dir.create(stable_dir, recursive = TRUE, showWarnings = FALSE)
+      stable_path <- file.path(
+        stable_dir,
+        paste0(target_string, "_", gsub("-", "", date_stamp), extension)
+      )
+      file.copy(from = out_path, to = stable_path, overwrite = TRUE)
+    }
+    return(out_path)
+  }
+  
+  # Authorize using the google email provided
+  drive_auth(google_email)
   
   # Create a temporary file exported locally, which can then be used to upload
   # to Google Drive
