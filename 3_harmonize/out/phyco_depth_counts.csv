@@ -1,17 +1,17 @@
 depth_agg_flag,harmonized_units,n
 <=1m,#/mL,1518
 <=1m,IVFU,503
-<=1m,RFU,5148
-<=1m,ug/L,7796
+<=1m,RFU,5145
+<=1m,ug/L,7063
 <=5m,#/mL,280
 <=5m,IVFU,661
 <=5m,RFU,7115
-<=5m,ug/L,6826
+<=5m,ug/L,6804
 >5m,#/mL,54
 >5m,IVFU,228
->5m,RFU,11216
+>5m,RFU,11215
 >5m,ug/L,9226
 No or inconsistent depth,#/mL,312
 No or inconsistent depth,IVFU,264
-No or inconsistent depth,RFU,12328
-No or inconsistent depth,ug/L,3435
+No or inconsistent depth,RFU,11704
+No or inconsistent depth,ug/L,3434

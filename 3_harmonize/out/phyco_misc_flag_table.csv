@@ -1,11 +1,12 @@
 parameter,harmonized_units,misc_flag,n
-Phycocyanin,ug/L,0,20624
-Phycocyanin,ug/L,1,6299
-Phycocyanin,ug/L,2,359
+Phycocyanin,ug/L,0,1425
+Phycocyanin,ug/L,2,12
+Phycocyanin (probe),ug/L,0,18590
+Phycocyanin (probe),ug/L,1,6299
+Phycocyanin (probe),ug/L,2,200
 Phycocyanin cell density,#/mL,0,2157
 Phycocyanin cell density,#/mL,2,7
-Phycocyanin relative fluorescence,IVFU,0,1653
-Phycocyanin relative fluorescence,IVFU,2,3
-Phycocyanin relative fluorescence,RFU,0,21885
-Phycocyanin relative fluorescence,RFU,1,13901
+Phycocyanin relative fluorescence,IVFU,0,1656
+Phycocyanin relative fluorescence,RFU,0,21578
+Phycocyanin relative fluorescence,RFU,1,13580
 Phycocyanin relative fluorescence,RFU,2,21

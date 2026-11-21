@@ -1,12 +1,12 @@
 three_cols_present,only_discrete,discrete_partial_integ,only_top,only_bottom,fully_integrated,no_depths,depth_flag,harmonized_units,n
 0,0,0,0,0,0,1,0,#/mL,312
 0,0,0,0,0,0,1,0,IVFU,264
-0,0,0,0,0,0,1,0,RFU,12325
-0,0,0,0,0,0,1,0,ug/L,3432
+0,0,0,0,0,0,1,0,RFU,11701
+0,0,0,0,0,0,1,0,ug/L,3431
 0,1,0,0,0,0,0,1,#/mL,1851
 0,1,0,0,0,0,0,1,IVFU,1392
-0,1,0,0,0,0,0,1,RFU,23476
-0,1,0,0,0,0,0,1,ug/L,23793
+0,1,0,0,0,0,0,1,RFU,23472
+0,1,0,0,0,0,0,1,ug/L,23038
 0,0,0,0,1,0,0,2,#/mL,1
 0,0,0,0,1,0,0,2,RFU,3
 0,0,0,0,0,1,0,2,ug/L,20

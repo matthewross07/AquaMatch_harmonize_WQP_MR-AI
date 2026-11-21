@@ -50,9 +50,13 @@ Randolph, K., J. Wilson, L. Tedesco, L. Li, D. L. Pascual, and E. Soyeux. 2008. 
 
 Ross, M. R. V., S. N. Topp, A. P. Appling, X. Yang, C. Kuhn, D. Butman, M. Simard, and T. M. Pavelsky. 2019. AquaSat: A Data Set to Enable Remote Sensing of Water Quality for Inland Waters. Water Resources Research 55: 10012--10025. [doi:10.1029/2019WR024883](https://doi.org/10.1029/2019WR024883)
 
+Rousso, B. Z., E. Bertone, R. A. Stewart, K. Rinke, and D. P. Hamilton. 2021. Light-induced fluorescence quenching leads to errors in sensor measurements of phytoplankton chlorophyll and phycocyanin. Water Research 198: 117133. <doi:10.1016/j.watres.2021.117133>
+
 Simis, S. G. H., S. W. M. Peters, and H. J. Gons. 2005. Remote sensing of the cyanobacterial pigment phycocyanin in turbid inland water. Limnology and Oceanography 50: 237--245. <doi:10.4319/lo.2005.50.1.0237>
 
 Teucher, A. 2023. lutz: Look Up Time Zones of Point Coordinates. R package version 0.3.2, <https://CRAN.R-project.org/package=lutz>.
+
+Wagner, R. J., R. W. Boulger Jr., C. J. Oblinger, and B. A. Smith. 2006. Guidelines and standard procedures for continuous water-quality monitors: Station operation, record computation, and data reporting. U.S. Geological Survey Techniques and Methods, book 1, chap. D3, 51 p. <https://doi.org/10.3133/tm1D3>
 
 Watras, C. J., K. A. Morrison, J. L. Rubsam, P. C. Hanson, A. J. Watras, G. D. LaLiberte, and P. Milewski. 2017. A temperature compensation method for chlorophyll and phycocyanin fluorescence sensors in freshwater. Limnology and Oceanography: Methods 15: 642--652. <doi:10.1002/lom3.10188>
 
@@ -61,3 +65,5 @@ Wetzel, R. G. 2024. Wetzel's limnology: lake and river ecosystems, Fourth editio
 Yates, C. A. and others. 2023. Determining patterns in the composition of dissolved organic matter in fresh waters according to land use and management. Biogeochemistry 164: 143–162. [doi:10.1007/s10533-022-00964-2](https://doi.org/10.1007/s10533-022-00964-2)
 
 Zamyadi, A., N. McQuaid, M. Prévost, and S. Dorner. 2012. Monitoring of potentially toxic cyanobacteria using an online multi-probe in drinking water sources. Journal of Environmental Monitoring 14: 579--588. <doi:10.1039/c1em10819k>
+
+Zimba, P. V. 2012. An improved phycobilin extraction method. Harmful Algae 17: 35--39. <doi:10.1016/j.hal.2012.02.009>

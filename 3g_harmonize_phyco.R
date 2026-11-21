@@ -70,31 +70,31 @@ p3_phyco_targets_list <- list(
   tar_file_read(
     name = p3_phyco_param_drop_record,
     command = p3_phyco_harmonized$phyco_param_drop_record_path,
-    read = read_csv(file = !!.x)
+    read = read_csv(file = !!.x, guess_max = Inf, show_col_types = FALSE)
   ),
   
   tar_file_read(
     name = p3_phyco_tiering_record,
     command = p3_phyco_harmonized$phyco_tiering_record_path,
-    read = read_csv(file = !!.x)
+    read = read_csv(file = !!.x, guess_max = Inf, show_col_types = FALSE)
   ),
   
   tar_file_read(
     name = p3_phyco_misc_flag_table,
     command = p3_phyco_harmonized$phyco_misc_flag_table_path,
-    read = read_csv(file = !!.x)
+    read = read_csv(file = !!.x, guess_max = Inf, show_col_types = FALSE)
   ),
   
   tar_file_read(
     name = p3_phyco_preharm_drops,
     command = p3_wqp_data_aoi_ready_phyco$compiled_drops_path,
-    read = read_csv(file = !!.x)
+    read = read_csv(file = !!.x, guess_max = Inf, show_col_types = FALSE)
   ),
   
   tar_file_read(
     name = p3_phyco_harmonize_drops,
     command = p3_phyco_harmonized$compiled_drops_path,
-    read = read_csv(file = !!.x)
+    read = read_csv(file = !!.x, guess_max = Inf, show_col_types = FALSE)
   ),
   
   # Compiled drop log across pre-harmonization and harmonization
@@ -135,7 +135,7 @@ p3_phyco_targets_list <- list(
   tar_file_read(
     name = p3_phyco_agg_harmonized,
     command = p3_phyco_harmonized$phyco_harmonized_path,
-    read = read_csv(file = !!.x)
+    read = read_csv(file = !!.x, guess_max = Inf, show_col_types = FALSE)
   ),
   
   # Create a copy of the csv in feather format
@@ -218,7 +218,7 @@ p3_phyco_targets_list <- list(
                                       p3_phyco_site_info_drive_file,
                                       p3_documented_drops_phyco_drive_file),
                            local_drive = isTRUE(p0_harmonization_config$local_drive)),
-    read = read_csv(file = !!.x),
+    read = read_csv(file = !!.x, guess_max = Inf, show_col_types = FALSE),
     packages = c("tidyverse", "googledrive")
   )
   

@@ -1,38 +1,39 @@
 parameter,CharacteristicName,ResultAnalyticalMethod.MethodName,USGSPCode,ResultAnalyticalMethod.MethodIdentifier,ResultAnalyticalMethod.MethodIdentifierContext,ResultMeasure.MeasureUnitCode,ResultSampleFractionText,tier,min_value,max_value,n
-Phycocyanin,Phycocyanin (probe),NA,NA,NA,NA,ug/L,NA,1,0,27.59,8642
-Phycocyanin relative fluorescence,Phycocyanin (probe relative fluorescence),Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,RFU,NA,1,0,55.52417,8317
+Phycocyanin (probe),Phycocyanin (probe),NA,NA,NA,NA,ug/L,NA,1,0,27.59,8642
+Phycocyanin relative fluorescence,Phycocyanin (probe relative fluorescence),Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,RFU,NA,1,0,55.52417,7691
 Phycocyanin relative fluorescence,Phycocyanin (probe relative fluorescence),NA,NA,NA,NA,RFU,NA,1,0,27.54,7623
-Phycocyanin,Phycocyanin,NA,NA,NA,NA,ug/L,NA,2,0,2000000,6183
 Phycocyanin relative fluorescence,Phycocyanins,NA,32321,NA,NA,RFU,Total,1,0,36.2,5938
 Phycocyanin relative fluorescence,Phycocyanin (probe relative fluorescence),NA,NA,NA,NA,RFU,NA,2,0,102.143,5494
-Phycocyanin,Phycocyanins,NA,32319,NA,NA,ug/l,Total,1,0,19900,4948
-Phycocyanin,Phycocyanins,"YSI EXO, 590/685/40 nm",32319,FL035,USGS,ug/l,Total,1,0.01,8.13,4148
+Phycocyanin (probe),Phycocyanin,NA,NA,NA,NA,ug/L,NA,2,0,42625.6,5008
+Phycocyanin (probe),Phycocyanins,NA,32319,NA,NA,ug/l,Total,1,0,19900,4947
+Phycocyanin (probe),Phycocyanins,"YSI EXO, 590/685/40 nm",32319,FL035,USGS,ug/l,Total,1,0.01,8.13,4148
 Phycocyanin relative fluorescence,Phycocyanins,"YSI EXO, 590/685/40 nm",32321,FL035,USGS,RFU,Total,1,0.04,15,4079
-Phycocyanin,Phycocyanin (probe),NA,NA,NA,NA,ug/L,NA,2,0,68,2153
+Phycocyanin (probe),Phycocyanin (probe),NA,NA,NA,NA,ug/L,NA,2,0,68,2153
 Phycocyanin relative fluorescence,Phycocyanin,NA,NA,NA,NA,RFU,NA,2,0,850.7,1764
 Phycocyanin cell density,Phycocyanin,NA,NA,NA,NA,#/mL,NA,2,0,1107760,1508
 Phycocyanin relative fluorescence,Phycocyanin (probe relative fluorescence),NA,95204,NA,NA,IVFU,NA,1,0,129,1482
 Phycocyanin relative fluorescence,Phycocyanin (probe),NA,NA,NA,NA,RFU,NA,1,0,17.08,1170
 Phycocyanin relative fluorescence,Phycocyanin (probe),NA,NA,NA,NA,RFU,NA,2,0,12.53,1134
+Phycocyanin,Phycocyanin,NA,NA,NA,NA,ug/L,NA,0,2.4211,413.6492,531
 Phycocyanin cell density,Phycocyanin (probe relative fluorescence),NA,95202,NA,NA,#/ml,NA,1,0,582600,443
 Phycocyanin,Phycocyanin,NA,52905,NA,NA,ug/l,Dissolved,0,0,230,204
 Phycocyanin cell density,Phycocyanin (probe relative fluorescence),YSI 6131 BGA-PC sensor,95202,ALG02,USGS,#/ml,NA,1,0,331607,179
 Phycocyanin relative fluorescence,Phycocyanin (probe relative fluorescence),YSI 6131 BGA-PC sensor,95204,ALG02,USGS,IVFU,NA,1,0,133,174
-Phycocyanin,Phycocyanin,"Phycobiliproteins,wf,spec(CAWSC)",52905,SP012,USGS,ug/l,Dissolved,0,0.20275954337557778,41000,153
-Phycocyanin,Phycocyanin (probe),Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,ug/L,None,1,0,211.8,130
+Phycocyanin,Phycocyanin,"Phycobiliproteins,wf,spec(CAWSC)",52905,SP012,USGS,ug/l,Dissolved,0,0.0074525283998809755,41000,153
+Phycocyanin (probe),Phycocyanin (probe),Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,ug/L,None,1,0,211.8,130
 Phycocyanin relative fluorescence,Algae-Phycocyanin,NA,NA,NA,NA,RFU,Total,2,0.05,124.49,125
-Phycocyanin,Phycocyanin,NA,NA,NA,NA,ug/L,NA,1,0,8746,118
-Phycocyanin,Phycocyanin,"McGlynn Laboratories, Inc. Method for Phycocyanin using UV/VIS Spectrometry",NA,MCGLYNN METHOD-PC,LADEQWPD_WQX,ug/L,Total,2,2.3,30,116
+Phycocyanin,Phycocyanin,"McGlynn Laboratories, Inc. Method for Phycocyanin using UV/VIS Spectrometry",NA,MCGLYNN METHOD-PC,LADEQWPD_WQX,ug/L,Total,1,2.3,30,116
 Phycocyanin,Phycocyanin,"Phycocyanin, wf, fluoro(NYWSC)",52905,FL083,USGS,ug/l,Dissolved,0,0,35.6,109
-Phycocyanin,Phycocyanin,EPA 445,NA,EPA 445,AZDEQ_SW,ug/L,Total,2,1.4093837235122919e-5,404,93
-Phycocyanin,Phycocyanin,Fluorometric Analysis of Phycocyanin,NA,2338.22A,EPA_R7_WQX,ug/L,Total,1,0,3,89
+Phycocyanin,Phycocyanin,EPA 445,NA,EPA 445,AZDEQ_SW,ug/L,Total,2,1.7164102126844227e-4,404,93
+Phycocyanin,Phycocyanin,Fluorometric Analysis of Phycocyanin,NA,2338.22A,EPA_R7_WQX,ug/L,Total,0,0.002818767447024584,4.955838825553656,89
 Phycocyanin relative fluorescence,Phycocyanin (probe relative fluorescence),445.0 ~ EPA; Chlorophyll and Pheophytin in Algae by Fluorescence,NA,445.0,USEPA,RFU,NA,2,0,44.03,89
-Phycocyanin,Phycocyanin,Phycocyanin in Water by Fluorometry,NA,FLUOROMETRY,MASSDEP,mg/m3,None,2,0.1292965526226908,149,72
+Phycocyanin,Phycocyanin,Phycocyanin in Water by Fluorometry,NA,FLUOROMETRY,MASSDEP,mg/m3,None,1,0.135337853920646,149,72
 Phycocyanin relative fluorescence,Phycocyanin,NA,NA,NA,NA,RFU,Total,2,0,242,67
-Phycocyanin,Phycocyanin,NA,NA,NA,NA,ppb,NA,2,0.4,190,41
+Phycocyanin (probe),Phycocyanin,NA,NA,NA,NA,ppb,NA,2,0.4,190,41
 Phycocyanin,Phycocyanin,Phycocyanin method modified from Otsuki et al. 1994,NA,USGS PHYCOCYANIN,MNPCA,ug/L,Suspended,0,0,61.5,40
 Phycocyanin cell density,Phycocyanin,"Field measurement/observation, generic method",NA,FLD,MNPCA,#/mL,Total,2,0,187,34
-Phycocyanin,Phycocyanin,Phycocyanin by HPLC,NA,PHYCOCYANIN-MDEQ-WQ,MDEQ_WQ_WQX,mg/L,NA,0,10.34135272493586,247.31801683083177,21
-Phycocyanin,Phycocyanin,NA,NA,NA,NA,mg/L,NA,2,0,45,15
-Phycocyanin,Phycocyanin,Multiparameter Sonde,NA,WVDEP-Multiparameter Sonde,WVDEP_WQX,ug/L,None,1,0.03,1.285,7
-Phycocyanin relative fluorescence,Phycocyanin,Multiparameter Sonde,NA,WVDEP-Multiparameter Sonde,WVDEP_WQX,RFU,None,1,0.06,1.185,7
+Phycocyanin,Phycocyanin,Phycocyanin by HPLC,NA,PHYCOCYANIN-MDEQ-WQ,MDEQ_WQ_WQX,mg/L,NA,2,3.2525110291317105,239.8512278450653,21
+Phycocyanin (probe),Phycocyanin,NA,NA,NA,NA,mg/L,NA,2,0,45,15
+Phycocyanin,Phycocyanin,NA,NA,NA,NA,ug/L,NA,2,0,160.7795172,9
+Phycocyanin (probe),Phycocyanin,Multiparameter Sonde,NA,WVDEP-Multiparameter Sonde,WVDEP_WQX,ug/L,None,1,0.03,0.85,5
+Phycocyanin relative fluorescence,Phycocyanin,Multiparameter Sonde,NA,WVDEP-Multiparameter Sonde,WVDEP_WQX,RFU,None,1,0.06,0.785,5

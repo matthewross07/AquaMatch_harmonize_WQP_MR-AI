@@ -3,12 +3,14 @@
 #' @description
 #' Harmonizes raw phycocyanin records retrieved from the WQP after
 #' pre-harmonization (`clean_wqp_data()`), separating incompatible measurement
-#' unit families (`ug/L`, `RFU`/`IVFU`, and `#/mL`), filtering mislabeled
-#' marine phycoerythrin and non-mean daily summary statistics, assigning QA/QC
-#' flags (`mdl_flag`, `approx_flag`, `greater_flag`, `depth_flag`,
-#' `field_flag`, `misc_flag`), tiering analytical methods (`0` = Restrictive,
-#' `1` = Narrowed, `2` = Inclusive), aggregating simultaneous observations, and
-#' exporting summary tables and diagnostic figures.
+#' scales (`Phycocyanin` extractive laboratory `ug/L`, `Phycocyanin (probe)`
+#' optical sensor `ug/L`, `Phycocyanin relative fluorescence` `RFU`/`IVFU`, and
+#' `Phycocyanin cell density` `#/mL`), filtering blanks, periphyton, mislabeled
+#' phycoerythrin, unit-misfiled batches, and non-mean daily summary statistics,
+#' assigning QA/QC flags (`mdl_flag`, `approx_flag`, `greater_flag`,
+#' `depth_flag`, `field_flag`, `misc_flag`), tiering analytical methods (`0` =
+#' Restrictive, `1` = Narrowed, `2` = Inclusive), aggregating simultaneous
+#' observations, and exporting summary tables and diagnostic figures.
 #'
 #' @param raw_phyco Data frame containing pre-harmonized phycocyanin records.
 #' @param p_codes Data frame of USGS parameter codes (`p3_p_codes`).
@@ -74,8 +76,25 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   raw_names <- names(raw_phyco)
   
   # Join USGS p-codes, recover missing measure units from detection limit
-  # metadata, and filter media, mislabeled phycoerythrin, and non-mean daily
-  # summary statistics
+  # metadata, and filter media, blanks, periphyton, non-target pigments,
+  # known unit-misfiled batches, and non-mean daily summary statistics
+  lab_method_pattern <- paste0(
+    c("Otsuki", "Kasinak", "Zimba", "Horvath", "Sarada", "Bennett",
+      "Phycobiliproteins,wf", "Phycocyanin, wf", "MCGLYNN METHOD-PC",
+      "Phycocyanin in Water by Fluorometry", "2338\\.22A",
+      "PHYCOCYANIN-MDEQ-WQ", "^EPA 445$", "freeze[- ]thaw",
+      "GF/F filter"),
+    collapse = "|"
+  )
+
+  probe_indicator_pattern <- paste0(
+    c("probe", "sonde", "sensor", "in[- ]situ", "\\bEXO", "\\bYSI\\b",
+      "\\b6131\\b", "\\b6600\\b", "ProDSS", "Cyclops", "Trilogy", "SCUFA",
+      "AquaFluor", "Hydrolab", "Eureka", "Manta", "Aqua ?TROLL", "FluoroProbe",
+      "Data Logger", "Continuous Time Series", "Field Msr/Obs"),
+    collapse = "|"
+  )
+
   phyco_narrowed <- raw_phyco %>%
     left_join(x = ., y = p_codes, by = c("USGSPCode" = "parm_cd")) %>%
     mutate(
@@ -83,9 +102,12 @@ harmonize_phyco <- function(raw_phyco, p_codes){
         na_if(trimws(ResultMeasure.MeasureUnitCode), ""),
         na_if(trimws(DetectionQuantitationLimitMeasure.MeasureUnitCode), "")
       ),
-      is_water_media = ActivityMediaSubdivisionName %in%
-        c("Surface Water", "Water", "Estuary") |
-        is.na(ActivityMediaSubdivisionName),
+      is_water_media = (ActivityMediaSubdivisionName %in%
+                          c("Surface Water", "Water", "Estuary") |
+                          is.na(ActivityMediaSubdivisionName)) &
+        !grepl("Blank", coalesce(ActivityTypeCode, ""), ignore.case = TRUE) &
+        !grepl("Periphyton", coalesce(SampleCollectionEquipmentName, ""),
+               ignore.case = TRUE),
       is_non_phyco = grepl(
         pattern = "BGA-PE|phycoerythrin|allophycocyanin|chlorophyll fluorescence",
         x = paste(ResultCommentText,
@@ -93,19 +115,52 @@ harmonize_phyco <- function(raw_phyco, p_codes){
                   parameter_name_description),
         ignore.case = TRUE
       ),
+      # CA_BVR 2021-2022 submitted integer cell-density counts (#/mL) under
+      # ug/L prior to updating WQX unit codes to #/mL in 2023
+      is_mislabeled_unit_batch = OrganizationIdentifier == "CA_BVR" &
+        year %in% c(2021, 2022) &
+        ResultMeasure.MeasureUnitCode %in% c("ug/L", "ug/l"),
       is_valid_stat = is.na(StatisticalBaseCode) |
         StatisticalBaseCode %in% c("Mean"),
+      is_mass_unit = ResultMeasure.MeasureUnitCode %in% c(
+        "ug/l", "ug/L", "mg/m3", "ppb", "mg/l", "mg/L", "ppm",
+        "ug/ml", "ug/mL", "mg/cm3"
+      ),
+      is_lab_assay = is_mass_unit &
+        !(CharacteristicName %in% "Phycocyanin (probe)") &
+        !(USGSPCode %in% c("32319", "95203")) &
+        (
+          (USGSPCode %in% "52905") |
+            grepl(
+              pattern = lab_method_pattern,
+              x = paste(ResultAnalyticalMethod.MethodIdentifier,
+                        ResultAnalyticalMethod.MethodName,
+                        ResultCommentText),
+              ignore.case = TRUE
+            ) |
+            (!grepl(
+              pattern = probe_indicator_pattern,
+              x = paste(CharacteristicName, ActivityTypeCode,
+                        SampleCollectionEquipmentName,
+                        SampleCollectionMethod.MethodName,
+                        ResultAnalyticalMethod.MethodName),
+              ignore.case = TRUE
+            )) |
+            (grepl("Water Bottle",
+                   coalesce(SampleCollectionEquipmentName, ""),
+                   ignore.case = TRUE) &
+               !grepl("probe|sonde|sensor",
+                      paste(ResultAnalyticalMethod.MethodName,
+                            SampleCollectionMethod.MethodName),
+                      ignore.case = TRUE))
+        ),
       parameter = case_when(
-        ResultMeasure.MeasureUnitCode %in% c(
-          "ug/l", "ug/L", "mg/m3", "ppb", "mg/l", "mg/L", "ppm",
-          "ug/ml", "ug/mL", "mg/cm3"
-        ) ~ "Phycocyanin",
-        ResultMeasure.MeasureUnitCode %in% c(
-          "RFU", "IVFU"
-        ) ~ "Phycocyanin relative fluorescence",
-        ResultMeasure.MeasureUnitCode %in% c(
-          "#/mL", "#/ml", "cells/mL"
-        ) ~ "Phycocyanin cell density",
+        is_lab_assay ~ "Phycocyanin",
+        is_mass_unit & !is_lab_assay ~ "Phycocyanin (probe)",
+        ResultMeasure.MeasureUnitCode %in% c("RFU", "IVFU") ~
+          "Phycocyanin relative fluorescence",
+        ResultMeasure.MeasureUnitCode %in% c("#/mL", "#/ml", "cells/mL") ~
+          "Phycocyanin cell density",
         .default = "Unmapped unit"
       )
     ) %>%
@@ -116,14 +171,16 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   }
   
   phyco <- phyco_narrowed %>%
-    filter(is_water_media, !is_non_phyco, is_valid_stat) %>%
-    select(-is_water_media, -is_non_phyco, -is_valid_stat)
+    filter(is_water_media, !is_non_phyco, !is_mislabeled_unit_batch, is_valid_stat) %>%
+    select(-is_water_media, -is_non_phyco, -is_mislabeled_unit_batch,
+           -is_valid_stat, -is_mass_unit, -is_lab_assay)
   
   param_drop_record_out_path <- "3_harmonize/out/phyco_param_drop_record.csv"
   
   write_csv(
     x = phyco_narrowed %>%
-      filter(!(is_water_media & !is_non_phyco & is_valid_stat)) %>%
+      filter(!(is_water_media & !is_non_phyco &
+                 !is_mislabeled_unit_batch & is_valid_stat)) %>%
       count(CharacteristicName, ResultAnalyticalMethod.MethodName,
             USGSPCode, ResultAnalyticalMethod.MethodIdentifier,
             ResultAnalyticalMethod.MethodIdentifierContext,
@@ -182,11 +239,16 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   gc()
   
   
-  # Document and remove fail language ---------------------------------------
+  # Document and remove fail language & disqualifying QC codes ---------------
+  
+  # Clear stale fail pie charts before generating current run diagnostics
+  unlink(list.files("3_harmonize/out", pattern = "^phyco_.*_fail_pie\\.png$",
+                    full.names = TRUE))
   
   # Fail phrases checked across comment, condition, and original value fields.
   # Bare "unstable" is excluded so valid records noting unrelated DO probe drift
-  # remain intact.
+  # remain intact, while biofouling pre-clean audits and non-deployed checks
+  # are removed per USGS TM 1-D3.
   fail_text <- c(
     "beyond accept", "cancelled", "contaminat", "error", "fail", "improper",
     "instrument down", "interference", "invalid", "no result", "no sample",
@@ -196,8 +258,12 @@ harmonize_phyco <- function(raw_phyco, p_codes){
     "warm sample", "broken bottle", "broken cooler", "received broken",
     "broken sensor", "time not documented", "wiper stopped",
     "wiper not parked", "sonde out of water", "sonde stopped recording",
+    "not logging", "not recording", "not deployed", "audit at streambank",
+    "preclean", "pre-clean", "readings will not settle", "reading high on bga",
     "stopped working", "not working", "off scale", "censored"
   )
+  
+  disqual_codes <- c("FQC", "R", "SUS", "QCI")
   
   fail_counts <- list(
     "ActivityCommentText", "ResultLaboratoryCommentText",
@@ -228,18 +294,27 @@ harmonize_phyco <- function(raw_phyco, p_codes){
     ) %>%
     keep(~ nrow(.) > 0)
   
+  qual_fail_counts <- phyco %>%
+    filter(coalesce(trimws(MeasureQualifierCode), "") %in% disqual_codes) %>%
+    count(word = trimws(MeasureQualifierCode), name = "record_count")
+  
+  if (nrow(qual_fail_counts) > 0) {
+    fail_counts$MeasureQualifierCode <- qual_fail_counts
+  }
+  
   walk2(
     .x = fail_counts,
     .y = names(fail_counts),
     .f = ~ ggsave(
       filename = paste0("3_harmonize/out/phyco_", .y, "_fail_pie.png"),
-      plot = plot_fail_pie(dataset = .x, col_name = .y),
-      width = 6, height = 6, units = "in", device = "png"
+      plot = plot_fail_pie(dataset = .x, col_name = .y, text_size = 2.6),
+      width = 7, height = 7, units = "in", device = "png"
     )
   )
   
   phyco_fails_removed <- phyco %>%
     filter(
+      !(coalesce(trimws(MeasureQualifierCode), "") %in% disqual_codes),
       if_all(
         .cols = c(ActivityCommentText, ResultLaboratoryCommentText,
                   ResultCommentText, ResultMeasureValue_original,
@@ -253,13 +328,13 @@ harmonize_phyco <- function(raw_phyco, p_codes){
     )
   
   print(paste0(
-    "Rows removed due to fail-related language: ",
+    "Rows removed due to fail-related language or QC qualifiers: ",
     nrow(phyco) - nrow(phyco_fails_removed)
   ))
   
   dropped_fails <- tibble(
     step = "phyco harmonization",
-    reason = "Dropped rows containing fail-related language",
+    reason = "Dropped rows containing fail-related language or QC qualifier codes",
     short_reason = "Fails, etc.",
     number_dropped = nrow(phyco) - nrow(phyco_fails_removed),
     n_rows = nrow(phyco_fails_removed),
@@ -272,11 +347,19 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   non_detect_text <- "non-detect|not detect|non detect|undetect|below|Present <QL"
   
   mdl_updates <- phyco_fails_removed %>%
-    filter(is.na(ResultMeasureValue)) %>%
+    filter(
+      is.na(ResultMeasureValue) |
+        (ResultMeasureValue == 0 &
+           (coalesce(trimws(MeasureQualifierCode), "") == "U" |
+              grepl(non_detect_text,
+                    coalesce(ResultDetectionConditionText, ""),
+                    ignore.case = TRUE)))
+    ) %>%
     mutate(
       mdl_vals = ifelse(
-        test = (is.na(ResultMeasureValue_original) &
-                  (grepl(non_detect_text, ResultLaboratoryCommentText, ignore.case = TRUE) |
+        test = ((is.na(ResultMeasureValue_original) | ResultMeasureValue == 0) &
+                  (coalesce(trimws(MeasureQualifierCode), "") == "U" |
+                     grepl(non_detect_text, ResultLaboratoryCommentText, ignore.case = TRUE) |
                      grepl(non_detect_text, ResultCommentText, ignore.case = TRUE) |
                      grepl(non_detect_text, ResultDetectionConditionText, ignore.case = TRUE))) |
           (grepl(non_detect_text, ResultMeasureValue_original, ignore.case = TRUE) |
@@ -300,7 +383,8 @@ harmonize_phyco <- function(raw_phyco, p_codes){
         ),
         ResultMeasure.MeasureUnitCode
       ),
-      half = suppressWarnings(as.numeric(mdl_vals)) / 2
+      mdl_num = suppressWarnings(as.numeric(mdl_vals)),
+      half = ifelse(!is.na(mdl_num) & mdl_num > 0, mdl_num / 2, NA_real_)
     )
   
   mdl_updates$std_value <- with(mdl_updates, suppressWarnings(runif(nrow(mdl_updates), 0, half)))
@@ -389,22 +473,31 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   
   greater_vals <- phyco_approx_added %>%
     filter((!index %in% mdl_updates$index) & (!index %in% phyco_approx$index)) %>%
-    filter(
-      is.na(ResultMeasureValue) &
-        grepl("[0-9]", ResultMeasureValue_original) &
-        grepl(">", ResultMeasureValue_original)
-    )
-  
-  greater_vals$greater_value <- suppressWarnings(as.numeric(
-    str_replace_all(
-      greater_vals$ResultMeasureValue_original,
-      c("\\>" = "", "\\*" = "", "\\=" = "")
-    )
-  ))
-  greater_vals$greater_value[is.nan(greater_vals$greater_value)] <- NA
-  
-  greater_vals <- greater_vals %>%
-    select(greater_value, index)
+    filter(is.na(ResultMeasureValue)) %>%
+    mutate(
+      greater_value = case_when(
+        grepl("[0-9]", coalesce(ResultMeasureValue_original, "")) &
+          grepl(">", coalesce(ResultMeasureValue_original, "")) ~
+          suppressWarnings(as.numeric(
+            str_replace_all(
+              ResultMeasureValue_original,
+              c("\\>" = "", "\\*" = "", "\\=" = "")
+            )
+          )),
+        grepl("above|exceed|greater",
+              coalesce(ResultDetectionConditionText, ""),
+              ignore.case = TRUE) &
+          !is.na(DetectionQuantitationLimitMeasure.MeasureValue) ~
+          suppressWarnings(as.numeric(DetectionQuantitationLimitMeasure.MeasureValue)),
+        .default = NA_real_
+      ),
+      greater_units = coalesce(
+        na_if(trimws(DetectionQuantitationLimitMeasure.MeasureUnitCode), ""),
+        harmonized_unit_raw
+      )
+    ) %>%
+    filter(!is.na(greater_value) & !is.nan(greater_value)) %>%
+    select(greater_value, greater_units, index)
   
   print(paste(
     round((nrow(greater_vals)) / nrow(phyco_approx_added) * 100, 9),
@@ -415,6 +508,7 @@ harmonize_phyco <- function(raw_phyco, p_codes){
     left_join(x = ., y = greater_vals, by = "index") %>%
     mutate(
       harmonized_value = ifelse(index %in% greater_vals$index, greater_value, harmonized_value),
+      harmonized_unit_raw = ifelse(index %in% greater_vals$index, greater_units, harmonized_unit_raw),
       greater_flag = ifelse(index %in% greater_vals$index, 1, 0)
     )
   
@@ -506,13 +600,24 @@ harmonize_phyco <- function(raw_phyco, p_codes){
     mutate(
       harmonized_value = harmonized_value * conversion,
       parameter = case_when(
-        harmonized_units == "ug/L" ~ "Phycocyanin",
+        parameter == "Unmapped unit" & harmonized_units == "ug/L" &
+          ((USGSPCode %in% "52905") |
+             grepl(lab_method_pattern,
+                   paste(ResultAnalyticalMethod.MethodIdentifier,
+                         ResultAnalyticalMethod.MethodName,
+                         ResultCommentText),
+                   ignore.case = TRUE)) ~ "Phycocyanin",
+        parameter == "Unmapped unit" & harmonized_units == "ug/L" ~ "Phycocyanin (probe)",
         harmonized_units %in% c("RFU", "IVFU") ~ "Phycocyanin relative fluorescence",
         harmonized_units == "#/mL" ~ "Phycocyanin cell density",
         .default = parameter
       )
     ) %>%
     select(-harmonized_unit_raw)
+  
+  if (any(converted_units_phyco$parameter == "Unmapped unit")) {
+    stop("Unresolved parameter labels remain after unit conversion.")
+  }
   
   print(paste0(
     "Rows removed while harmonizing units: ",
@@ -733,30 +838,23 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   
   # Filter and tier analytical methods --------------------------------------
   
-  # Tier 0 (Restrictive): Extractive benchtop fluorometric, spectrophotometric,
-  #   or HPLC phycocyanin pigment assays in ug/L
-  # Tier 1 (Narrowed): Documented optical in situ fluorometric probes/sondes
-  #   with identifiable sensor/calibration metadata across ug/L, RFU/IVFU, #/mL
-  # Tier 2 (Inclusive): Ambiguous/missing method metadata, LOCAL/Unknown/GENERIC,
-  #   or undocumented probe records lacking instrument details
+  # Tier 0 (Restrictive): Verified extractive laboratory phycocyanin assays in
+  #   ug/L with documented aqueous extraction and cell-lysis/spectral protocols
+  #   (Otsuki et al. 1994, Zimba 2012, Horvath et al. 2013, Kasinak et al. 2015)
+  # Tier 1 (Narrowed): Documented laboratory optical assays lacking verified
+  #   extraction comparability, OR documented in situ optical sensor platforms/
+  #   USGS sensor p-codes across probe ug/L, RFU/IVFU, and #/mL
+  # Tier 2 (Inclusive): Missing/generic methods, acetone Chl-a methods (EPA 445)
+  #   that denature phycobiliproteins, or unverified 0.5 mg/L LRL HPLC entries
   
-  in_situ_probe_pattern <- paste0(
-    c("YSI", "EXO", "6600", "ProDSS", "Turner", "Cyclops", "SCUFA", "Trilogy",
-      "AquaFluor", "Eureka", "Manta", "OTT", "Hydrolab", "In[- ]Situ",
-      "Aqua ?TROLL", "bbe", "FluoroProbe", "Fluorescen", "Fluoromet",
-      "Spectromet", "Optical Sensor", "Submersible", "Multiparameter",
-      "Sonde", "Probe", "TM1D10", "SOP2041", "FD01", "FLD-SONDE",
-      "FIELD_MEASURE", "FLUOROMETRY", "MCGLYNN METHOD-PC"),
+  documented_sensor_pattern <- paste0(
+    c("\\bYSI\\b", "\\bEXO[0-9]*\\b", "\\b6131\\b", "\\b6600\\b", "\\bProDSS\\b",
+      "\\bTurner\\b", "\\bCyclops\\b", "\\bSCUFA\\b", "\\bTrilogy\\b",
+      "\\bAquaFluor\\b", "\\bEureka\\b", "\\bManta\\b", "\\bHydrolab\\b",
+      "\\bAqua ?TROLL\\b", "\\bFluoroProbe\\b", "Multiparameter.*Sonde",
+      "^FL035$", "^ALG02$", "YSI - BGA PC"),
     collapse = "|"
   )
-  
-  lab_extractive_pattern <- paste0(
-    c("freeze[- ]thaw", "extract", "HPLC", "benchtop", "spectrophoto",
-      "Horvath", "Kasinak", "Otsuki", "Sarada"),
-    collapse = "|"
-  )
-  
-  vague_method_pattern <- "^(LOCAL|Unknown|GENERIC|CALCULATION|OTHER)$"
   
   # Remove clearly misassigned non-phycocyanin analytical methods (e.g., 4500-P B phosphorus)
   phyco_relevant_methods <- flagged_depth_phyco %>%
@@ -775,50 +873,64 @@ harmonize_phyco <- function(raw_phyco, p_codes){
               ResultAnalyticalMethod.MethodName),
         ignore.case = TRUE
       ),
+      is_unverified_hplc = coalesce(ResultAnalyticalMethod.MethodIdentifier, "") ==
+        "PHYCOCYANIN-MDEQ-WQ",
       is_extractive_lab = parameter == "Phycocyanin" &
         !is_chl_method &
-        !grepl(
-          pattern = "probe|sonde|in[- ]situ|EXO|YSI|6600|ProDSS|Cyclops|Trilogy|SCUFA|Hydrolab|Eureka|Manta|Aqua ?TROLL|FluoroProbe|in vivo|sensor",
-          x = paste(ResultAnalyticalMethod.MethodName,
-                    SampleCollectionEquipmentName,
-                    SampleCollectionMethod.MethodName),
-          ignore.case = TRUE
-        ) &
+        !is_unverified_hplc &
         (
-          USGSPCode == "52905" |
-            ResultAnalyticalMethod.MethodIdentifier %in%
-              c("FL021", "HPLC-PC", "SOP 665", "10200-H", "800") |
-            grepl(lab_extractive_pattern,
-                  ResultAnalyticalMethod.MethodName,
-                  ignore.case = TRUE)
-        ),
-      is_documented_probe = !is_extractive_lab &
-        !is_chl_method &
-        !grepl(vague_method_pattern,
-               coalesce(trimws(ResultAnalyticalMethod.MethodIdentifier), ""),
-               ignore.case = TRUE) &
-        !grepl(vague_method_pattern,
-               coalesce(trimws(ResultAnalyticalMethod.MethodName), ""),
-               ignore.case = TRUE) &
-        (
-          USGSPCode %in% c("32315", "32319", "32321", "32329", "32335",
-                           "95201", "95202", "95203", "95204") |
+          (USGSPCode %in% "52905") |
+            (ResultAnalyticalMethod.MethodIdentifier %in%
+               c("SP012", "FL083", "USGS PHYCOCYANIN", "2338.22A")) |
             grepl(
-              pattern = in_situ_probe_pattern,
-              x = paste(ResultAnalyticalMethod.MethodIdentifier,
-                        ResultAnalyticalMethod.MethodName,
-                        SampleCollectionMethod.MethodName,
+              pattern = "Otsuki|Kasinak|Zimba|Horvath|Sarada|fbu096|GF/F filter",
+              x = paste(ResultAnalyticalMethod.MethodName,
+                        MethodDescriptionText,
                         ResultCommentText),
               ignore.case = TRUE
             )
         ),
+      is_doc_lab_optical = parameter == "Phycocyanin" &
+        !is_extractive_lab &
+        !is_chl_method &
+        !is_unverified_hplc &
+        (
+          (ResultAnalyticalMethod.MethodIdentifier %in%
+             c("MCGLYNN METHOD-PC", "FLUOROMETRY")) |
+            grepl(
+              pattern = "Spectromet|Spectrophoto|Fluoromet",
+              x = coalesce(ResultAnalyticalMethod.MethodName, ""),
+              ignore.case = TRUE
+            )
+        ),
+      is_documented_sensor = parameter != "Phycocyanin" &
+        !is_chl_method &
+        (
+          (USGSPCode %in% c("32315", "32319", "32321", "32329", "32335",
+                            "95201", "95202", "95203", "95204")) |
+            grepl(
+              pattern = documented_sensor_pattern,
+              x = paste(ResultAnalyticalMethod.MethodIdentifier,
+                        ResultAnalyticalMethod.MethodName,
+                        SampleCollectionMethod.MethodName,
+                        if_else(
+                          grepl("YSI - BGA PC", coalesce(ResultCommentText, ""),
+                                ignore.case = TRUE),
+                          ResultCommentText,
+                          ""
+                        )),
+              ignore.case = TRUE,
+              perl = TRUE
+            )
+        ),
       tier = case_when(
         is_extractive_lab ~ 0,
-        is_documented_probe ~ 1,
+        is_doc_lab_optical | is_documented_sensor ~ 1,
         .default = 2
       )
     ) %>%
-    select(-is_chl_method, -is_extractive_lab, -is_documented_probe)
+    select(-is_chl_method, -is_unverified_hplc, -is_extractive_lab,
+           -is_doc_lab_optical, -is_documented_sensor)
   
   tiering_record <- tiered_methods_phyco %>%
     group_by(
@@ -854,50 +966,70 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   
   # Flag field methods ------------------------------------------------------
   
-  # Check sampling modality consistency against assigned analytical tier:
-  # 0 = discrete/grab for extractive lab (tier 0) or whole-water in situ sensor
-  #     deployment for documented optical methods (tier 1);
-  # 1 = suspect modality/fraction mismatch (e.g., in situ metadata on lab tier,
-  #     or bottle/grab/dissolved-fraction metadata on optical probe tier);
-  # 2 = inconclusive (tier 2) or unknown sample collection metadata.
-  in_vitro_pattern <- paste0(
-    c("grab", "bottle", "vessel", "bucket", "jar", "composite",
-      "integrate", "surface", "filter", "filtrat", "kemmerer",
-      "van dorn", "bail", "water sampler", "sample collection",
-      "sample-routine", "\\blab", "^g$"),
+  # Check sampling modality consistency against assigned parameter & tier:
+  # 0 = discrete grab/bottle/Kemmerer/Van Dorn/filter for lab Phycocyanin
+  #     (Tiers 0-1), or in situ sonde / discrete non-dissolved subsample for
+  #     documented optical sensors (Tier 1);
+  # 1 = depth/width-integrated composite or pump sample (homogenizes surface
+  #     scums and can shear filaments), or modality/fraction mismatch
+  #     (Probe/Sensor on lab Phycocyanin, Dissolved fraction on optical sensor);
+  # 2 = inconclusive (Tier 2 or Unknown/Other/NA collection metadata).
+  composite_pump_pattern <- paste0(
+    c("integrated", "composite", "multiple verticals", "equal width",
+      "\\bewi\\b", "vinyl tube", "bag sampler", "pump"),
     collapse = "|"
   )
-  
-  in_situ_pattern <- paste0(
-    c("in situ", "probe", "sonde", "sensor", "ctd", "logger",
-      "msr/obs", "fluorometer", "hydrolab", "ysi", "exo", "troll"),
+  discrete_lab_pattern <- paste0(
+    c("grab", "bottle", "kemmerer", "van dorn", "bucket", "bail",
+      "jar", "filter", "GF/F", "wading", "point", "water sampler"),
+    collapse = "|"
+  )
+  discrete_probe_pattern <- paste0(
+    c("probe", "sonde", "sensor", "logger", "time series",
+      "field msr/obs", "point", "grab", "kemmerer", "van dorn",
+      "weighted[- ]bottle", "bail"),
     collapse = "|"
   )
   
   field_flagged_phyco <- tiered_methods_phyco %>%
     mutate(
-      field_text_combined = paste(
+      coll_text_all = paste(
+        ActivityTypeCode,
+        SampleCollectionMethod.MethodName,
+        SampleCollectionEquipmentName,
+        ResultCommentText
+      ),
+      coll_text_meta = paste(
         ActivityTypeCode,
         SampleCollectionMethod.MethodName,
         SampleCollectionEquipmentName
       ),
-      field_tag = case_when(
-        grepl(in_situ_pattern, field_text_combined, ignore.case = TRUE, perl = TRUE) ~ "in situ",
-        grepl(in_vitro_pattern, field_text_combined, ignore.case = TRUE, perl = TRUE) ~ "in vitro",
-        .default = "unknown"
+      is_comp_pump = grepl(
+        composite_pump_pattern, coll_text_meta,
+        ignore.case = TRUE, perl = TRUE
       ),
       field_flag = case_when(
-        tier == 0 & field_tag == "in vitro" ~ 0,
-        tier == 0 & field_tag == "in situ" ~ 1,
-        tier == 0 & field_tag == "unknown" ~ 2,
-        tier == 1 & field_tag == "in situ" &
-          (ResultSampleFractionText != "Dissolved" | is.na(ResultSampleFractionText)) ~ 0,
-        tier == 1 & (field_tag == "in vitro" | ResultSampleFractionText == "Dissolved") ~ 1,
-        tier == 1 & field_tag == "unknown" ~ 2,
-        tier == 2 ~ 2
+        tier == 2 ~ 2,
+        parameter == "Phycocyanin" &
+          grepl("Probe/Sensor", coalesce(SampleCollectionEquipmentName, ""),
+                ignore.case = TRUE) ~ 1,
+        parameter == "Phycocyanin" & is_comp_pump ~ 1,
+        parameter == "Phycocyanin" &
+          grepl(discrete_lab_pattern, coll_text_all,
+                ignore.case = TRUE, perl = TRUE) ~ 0,
+        parameter == "Phycocyanin" ~ 2,
+        parameter != "Phycocyanin" &
+          (ResultSampleFractionText %in% "Dissolved") ~ 1,
+        parameter != "Phycocyanin" & is_comp_pump ~ 1,
+        parameter != "Phycocyanin" &
+          grepl(discrete_probe_pattern, coll_text_meta,
+                ignore.case = TRUE, perl = TRUE) &
+          !(coalesce(SampleCollectionEquipmentName, "") == "Unknown" &
+              coalesce(ActivityTypeCode, "") %in% c("Unknown", "Sample-Routine")) ~ 0,
+        .default = 2
       )
     ) %>%
-    select(-field_text_combined, -field_tag)
+    select(-coll_text_all, -coll_text_meta, -is_comp_pump)
   
   print(paste0(
     "Rows removed while assigning field flags: ",
@@ -917,18 +1049,21 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   # Miscellaneous flag ------------------------------------------------------
   
   # misc_flag definitions for phycocyanin:
-  # 0 = discrete/instantaneous observation within typical surface-water bounds
+  # 0 = discrete/instantaneous observation within linear calibration bounds
   # 1 = daily "Mean" statistical summary (held out from replicate averaging)
-  # 2 = extreme hypertrophic / scum value exceeding standard linear calibration
-  #     range (> 2,000 ug/L, > 100 RFU or IVFU, or > 280,000 #/mL); held out
+  # 2 = extreme hypertrophic / sensor saturation-ceiling exceedance
+  #     (> 1,000 ug/L for extractive lab Phycocyanin, > 100 ug/L for in situ
+  #     Phycocyanin (probe), > 100 RFU, > 200 IVFU, or > 280,000 #/mL); held out
   #     from simultaneous replicate averaging matching AquaMatch convention
   misc_flagged_phyco <- field_flagged_phyco %>%
     mutate(
       misc_flag = case_when(
-        (harmonized_units == "ug/L" & harmonized_value > 2000) |
-          (harmonized_units %in% c("RFU", "IVFU") & harmonized_value > 100) |
+        (parameter == "Phycocyanin" & harmonized_value > 1000) |
+          (parameter == "Phycocyanin (probe)" & harmonized_value > 100) |
+          (harmonized_units == "RFU" & harmonized_value > 100) |
+          (harmonized_units == "IVFU" & harmonized_value > 200) |
           (harmonized_units == "#/mL" & harmonized_value > 280000) ~ 2,
-        StatisticalBaseCode == "Mean" ~ 1,
+        StatisticalBaseCode %in% "Mean" ~ 1,
         .default = 0
       )
     )
@@ -952,13 +1087,19 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   
   # Unrealistic values ------------------------------------------------------
   
-  # Remove impossible bulk-water pure-pigment artifacts (> 100,000 ug/L =
-  # 100 mg/L pure phycocyanin protein; e.g. probe cell-density unit
-  # misassignments in ug/L) while preserving verified scum extracts up to
-  # 41,000 ug/L under misc_flag = 2. Also remove depths > 592 m (Crater Lake).
+  # Apply modality-specific physical upper bounds:
+  # - Extractive lab Phycocyanin > 50,000 ug/L (preserves diluted bloom/scum
+  #   extracts up to 41,000 ug/L under misc_flag = 2)
+  # - In situ Phycocyanin (probe) > 5,000 ug/L (above commercial fluorometer
+  #   saturation ceilings; removes unit-entry errors such as 19,900 ug/L)
+  # - Relative fluorescence > 2,000 RFU/IVFU; cell density > 10,000,000 #/mL
+  # - Depths > 592 m (maximum US lake depth, Crater Lake OR)
   realistic_phyco <- misc_flagged_phyco %>%
     filter(
-      !(harmonized_units == "ug/L" & harmonized_value > 100000),
+      !(parameter == "Phycocyanin" & harmonized_value > 50000),
+      !(parameter == "Phycocyanin (probe)" & harmonized_value > 5000),
+      !(parameter == "Phycocyanin relative fluorescence" & harmonized_value > 2000),
+      !(parameter == "Phycocyanin cell density" & harmonized_value > 10000000),
       harmonized_top_depth_value <= 592 | is.na(harmonized_top_depth_value),
       harmonized_bottom_depth_value <= 592 | is.na(harmonized_bottom_depth_value),
       harmonized_discrete_depth_value <= 592 | is.na(harmonized_discrete_depth_value)
@@ -1054,25 +1195,27 @@ harmonize_phyco <- function(raw_phyco, p_codes){
         ordered = TRUE
       ),
       param_label = case_when(
-        parameter == "Phycocyanin" ~ "Phycocyanin (ug/L)",
+        parameter == "Phycocyanin" ~ "Phycocyanin (lab)",
+        parameter == "Phycocyanin (probe)" ~ "Phycocyanin (probe)",
         parameter == "Phycocyanin relative fluorescence" ~ "PC Rel. Fluor.",
         parameter == "Phycocyanin cell density" ~ "PC Cell Density",
         .default = parameter
-      )
+      ),
+      facet_label = paste0(param_label, " (", harmonized_units, ")")
     )
   
-  # 1. Harmonized value distributions (log10 positive + 0.001 offset if zeros exist)
+  # 1. Harmonized value distributions
   tier_dists <- no_simul_phyco_tier_label %>%
-    select(parameter, tier_label, harmonized_value, harmonized_units) %>%
+    select(parameter, facet_label, tier_label, harmonized_value) %>%
     filter(harmonized_value > 0) %>%
     ggplot() +
     geom_histogram(aes(harmonized_value, fill = parameter),
                    color = "black", alpha = 0.85, bins = 35) +
-    facet_wrap(harmonized_units ~ tier_label, ncol = 3, scales = "free") +
+    facet_wrap(facet_label ~ tier_label, ncol = 3, scales = "free") +
     xlab("Harmonized values") +
     ylab("Record count") +
     ggtitle(
-      label = "Distribution of positive harmonized phycocyanin values by tier and unit"
+      label = "Distribution of positive harmonized phycocyanin values by parameter, unit, and tier"
     ) +
     scale_x_log10(label = label_scientific()) +
     scale_y_continuous(label = label_number(scale_cut = cut_short_scale())) +
@@ -1088,18 +1231,18 @@ harmonize_phyco <- function(raw_phyco, p_codes){
   
   ggsave(filename = "3_harmonize/out/phyco_tier_dists_postagg.png",
          plot = tier_dists,
-         width = 9.5, height = 8, units = "in", device = "png")
+         width = 9.5, height = 9.5, units = "in", device = "png")
   
   # 2. Harmonized CVs
   cv_plot_data <- no_simul_phyco_tier_label %>%
-    select(parameter, tier_label, harmonized_value_cv) %>%
+    select(param_label, tier_label, harmonized_value_cv) %>%
     filter(!is.na(harmonized_value_cv)) %>%
     mutate(plot_value = harmonized_value_cv + 0.001)
   
   tier_cv_dist <- cv_plot_data %>%
     ggplot() +
     geom_histogram(aes(plot_value), color = "black", fill = "white", bins = 30) +
-    facet_wrap(parameter ~ tier_label, scales = "free_y", ncol = 3) +
+    facet_wrap(param_label ~ tier_label, scales = "free_y", ncol = 3) +
     xlab(expression("Harmonized coefficient of variation (+ 0.001, " ~ log[10] ~ " scale)")) +
     ylab("Record count") +
     ggtitle(
@@ -1112,19 +1255,22 @@ harmonize_phyco <- function(raw_phyco, p_codes){
     ) +
     scale_x_log10(label = label_scientific()) +
     theme_bw() +
-    theme(strip.text = element_text(size = 8))
+    theme(
+      strip.text = element_text(size = 8),
+      plot.margin = margin(10, 16, 10, 10)
+    )
   
   ggsave(filename = "3_harmonize/out/phyco_tier_cv_dists_postagg.png",
          plot = tier_cv_dist,
-         width = 9, height = 6.5, units = "in", device = "png")
+         width = 9.5, height = 7.5, units = "in", device = "png")
   
   # 3. Maps
-  plot_tier_maps(dataset = no_simul_phyco, custom_width = 9.5, custom_height = 8.5,
+  plot_tier_maps(dataset = no_simul_phyco, custom_width = 9.5, custom_height = 10.5,
                  n_bins = 25, param_name = "phyco", flip_facets = TRUE,
                  legend_position = "bottom")
   
   # 4. Time charts
-  plot_time_charts(dataset = no_simul_phyco, custom_width = 8.5, custom_height = 6.5,
+  plot_time_charts(dataset = no_simul_phyco, custom_width = 9, custom_height = 7,
                    year_seq = 5, param_name = "phyco", legend_position = "bottom",
                    scale_type = "free_y", n_cols = 2)
   
@@ -1157,7 +1303,7 @@ harmonize_phyco <- function(raw_phyco, p_codes){
       theme_bw() +
       theme(legend.position = "bottom")
     ggsave(filename = out_file, plot = p,
-           width = 8, height = 6.5, units = "in", device = "png")
+           width = 8.5, height = 7.5, units = "in", device = "png")
   }
   
   plot_depth_hist(no_simul_phyco_tier_label, "harmonized_top_depth_value",

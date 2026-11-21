@@ -34,7 +34,7 @@ phyco_misc_flag_table <- params$phyco_misc_flag_table
 
 Following the completion of the `{dataRetrieval}` download process described previously, the pipeline contains raw WQP data for each parameter of interest. Before harmonizing each parameter, we run through a series of universal "pre-harmonization" steps to ensure consistent column types, site metadata, and time zones across the dataset.
 
-Phycocyanin is a water-soluble phycobiliprotein accessory pigment characteristic of freshwater cyanobacteria, exhibiting an in-water absorption maximum near 620 nm and fluorescence emission near 645--650 nm (Simis et al., 2005; Randolph et al., 2008; Chorus and Welker, 2021). The sections below walk through the pre-harmonization and harmonization steps for phycocyanin, explaining how incompatible measurement scales (mass concentration, relative probe fluorescence, and sensor-estimated cell density), misfiled accessory pigments, daily statistical summaries, and analytical methodologies are separated, cleaned, tiered, and flagged.
+Phycocyanin is a water-soluble phycobiliprotein accessory pigment characteristic of freshwater cyanobacteria, exhibiting an in-water absorption maximum near 620 nm and fluorescence emission near 645--650 nm (Simis et al., 2005; Randolph et al., 2008; Chorus and Welker, 2021). The sections below walk through the pre-harmonization and harmonization steps for phycocyanin, explaining how extractive laboratory pigment assays (`Phycocyanin`), *in situ* optical probe mass-equivalent estimates (`Phycocyanin (probe)`), *in vivo* relative probe fluorescence (`Phycocyanin relative fluorescence`), and sensor-estimated cyanobacterial cell counts (`Phycocyanin cell density`) are separated, cleaned, tiered, and flagged.
 
 ```{r echo = FALSE}
 # Order pre-harmonization steps ahead of harmonization steps
@@ -199,7 +199,7 @@ Once ready for harmonization, the phycocyanin WQP dataset contains the following
 
 <br>
 
-### Filter media, non-target pigments, and daily summaries; categorize parameters
+### Filter media, non-target pigments, unit-misfiled batches, and daily summaries; categorize parameters
 
 ```{r echo = FALSE}
 step_counter <- 4
@@ -217,25 +217,27 @@ step_4_dropped <- filter(step_data, reorder == step_counter) %>%
   paste0(., " thousand")
 ```
 
-In this step, we first recover empty `ResultMeasure.MeasureUnitCode` entries from `DetectionQuantitationLimitMeasure.MeasureUnitCode` when non-detect rows report their units only in the detection-limit metadata. We then apply three domain-specific filters before assigning phycocyanin parameter categories:
+In this step, we first recover empty `ResultMeasure.MeasureUnitCode` entries from `DetectionQuantitationLimitMeasure.MeasureUnitCode` when non-detect rows report their units only in the detection-limit metadata. We then apply four domain-specific filters before assigning phycocyanin parameter categories:
 
-1. **Water media filtering**: `ActivityMediaSubdivisionName` must be `"Surface Water"`, `"Water"`, `"Estuary"`, or `NA`, removing `"Ocean Water"`.
-2. **Non-target pigment exclusion**: WQP submissions occasionally file accessory phycobiliprotein or chlorophyll fluorescence data under phycocyanin `CharacteristicName`s. In particular, estuarine probe records annotated `"YSI - BGA-PE"` (phycoerythrin) in `ResultCommentText` or `ResultAnalyticalMethod.MethodName`, as well as USGS parameter codes for phycoerythrin, allophycocyanin, or `fChl`, are excluded.
-3. **Daily statistical summary filtering**: Continuous water quality sondes frequently archive multiple daily summary statistics at the same station and date (`"Minimum"`, `"Maximum"`, `"Delta"`, `"Median"`, and `"Mean"`). Including extremes alongside central tendencies would collapse spreads into site averages during downstream aggregation, so we drop non-central statistical summaries while retaining instantaneous (`NA`) and daily `"Mean"` records (which are subsequently flagged in `misc_flag`).
+1. **Water media and matrix filtering**: `ActivityMediaSubdivisionName` must be `"Surface Water"`, `"Water"`, `"Estuary"`, or `NA` (removing `"Ocean Water"`). Field quality-control blanks (`ActivityTypeCode` containing `"Blank"`) and benthic substrate scrapes (`"Periphyton"` in `SampleCollectionEquipmentName`) are also removed.
+2. **Non-target pigment exclusion**: WQP submissions occasionally file accessory phycobiliprotein or chlorophyll fluorescence data under phycocyanin `CharacteristicName`s. Estuarine probe records annotated `"YSI - BGA-PE"` (phycoerythrin) in `ResultCommentText` or `ResultAnalyticalMethod.MethodName`, as well as USGS parameter codes for phycoerythrin, allophycocyanin, or `fChl`, are excluded.
+3. **Unit-misfiled batch exclusion**: Historical audit checks show that `CA_BVR` transitioned from floating-point sensor `ug/L` outputs in 2016--2020 (`<= 1.2%` integer values) to integer cell-density readouts (`99.6--100%` integer values up to `2,000,000`) during 2021--2022 while retaining `"ug/L"` in `ResultMeasure.MeasureUnitCode`, before correcting the unit code to `"#/mL"` in 2023--2026. The mislabeled `2021--2022` `CA_BVR` `"ug/L"` batch is excluded here so cell counts are not conflated with pigment mass concentration.
+4. **Daily statistical summary filtering**: Continuous water quality sondes frequently archive multiple daily summary statistics at the same station and date (`"Minimum"`, `"Maximum"`, `"Delta"`, `"Median"`, and `"Mean"`). Including extremes alongside central tendencies would collapse spreads into site averages during downstream aggregation, so non-central statistical summaries are dropped while retaining instantaneous (`NA`) and daily `"Mean"` records (which are subsequently flagged in `misc_flag`).
 
-Because optical *in vivo* relative fluorescence units (`RFU`/`IVFU`) and sensor-estimated cell counts (`#/mL`) cannot be converted to phycocyanin mass concentration (`ug/L`) without empirical, taxon- and instrument-specific calibrations (Bertone et al., 2018; Foster et al., 2022), surviving records are separated into three incompatible `parameter` groups:
+Even among surviving `ug/L` records, extractive laboratory assays and *in situ* optical probes measure fundamentally different physical quantities. Paired WQP sonde deployments reporting simultaneous `ug/L` and `RFU` channels demonstrate that probe `"ug/L"` outputs represent organization- or factory-specific linear Rhodamine-WT fluorescence scalings (e.g., median `ug/L : RFU` ratios of `1.00` across `USGS-CO`, `USGS-KS`, `USGS-TX`, and `CT_DEP01_WQX` versus `10.00` at `LADEQWPD_WQX` and `13.40` at `USGS-NV`) that remain vulnerable to non-photochemical quenching (NPQ; Rousso et al., 2021), inverse temperature sensitivity (~1% per deg C; Watras et al., 2017), cellular packaging self-shading, and dissolved organic matter / chlorophyll-*a* optical cross-talk (Zamyadi et al., 2012; Bertone et al., 2018; Foster et al., 2022). Because simultaneous-record aggregation drops `CharacteristicName` and `ResultAnalyticalMethod.MethodName`, surviving records are separated into four physically distinct `parameter` groups:
 
 <!-- Table created with https://www.tablesgenerator.com/markdown_tables -->
 
 | Parameter | Definition |
 |---|---|
-| Phycocyanin | Phycocyanin mass concentration records with `ResultMeasure.MeasureUnitCode` in `"ug/l"`, `"ug/L"`, `"mg/m3"`, `"ppb"`, `"mg/l"`, `"mg/L"`, `"ppm"`, `"ug/ml"`, `"ug/mL"`, or `"mg/cm3"` |
-| Phycocyanin relative fluorescence | Optical *in vivo* probe relative fluorescence records with units `"RFU"` or `"IVFU"` |
-| Phycocyanin cell density | Cyanobacterial cell-density equivalents derived from phycocyanin assays or calibrated sensors with units `"#/mL"`, `"#/ml"`, or `"cells/mL"` |
+| Phycocyanin | Laboratory/extractive phycocyanin pigment assays on filtered or whole-water samples with `ResultMeasure.MeasureUnitCode` in `"ug/l"`, `"ug/L"`, `"mg/m3"`, `"ppb"`, `"mg/l"`, `"mg/L"`, `"ppm"`, `"ug/ml"`, `"ug/mL"`, or `"mg/cm3"` |
+| Phycocyanin (probe) | *In situ* submersible optical fluorometric sensor estimates calibrated to `ug/L` mass-equivalent units |
+| Phycocyanin relative fluorescence | *In vivo* optical probe relative fluorescence records with units `"RFU"` or `"IVFU"` |
+| Phycocyanin cell density | Cyanobacterial cell-density equivalents derived from phycocyanin sensors or calibrated optical field methods with units `"#/mL"`, `"#/ml"`, or `"cells/mL"` |
 
 <br>
 
-Records excluded by the media, non-target pigment, or daily summary statistic filters are dropped (`n = ` `r comma(sum(param_drop_record$n))`). A summary of excluded records is shown below:
+Records excluded by the media/matrix, non-target pigment, unit-misfiled batch, or daily summary statistic filters are dropped (`n = ` `r comma(sum(param_drop_record$n))`). A summary of excluded records is shown below:
 
 ```{r fig.alt="Table containing combinations of phycocyanin record metadata dropped during media, non-target pigment, and statistic filtering."}
 param_drop_record %>%
@@ -292,17 +294,21 @@ step_5_dropped <- filter(step_data, reorder == step_counter) %>%
   pull(number_dropped)
 ```
 
-In this step we filter out records containing failure or sensor-malfunction language across `ActivityCommentText`, `ResultLaboratoryCommentText`, `ResultCommentText`, `ResultDetectionConditionText`, and `ResultMeasureValue_original` (the character copy of `ResultMeasureValue` prior to numeric coercion).
+In this step we filter out records containing disqualifying WQX `MeasureQualifierCode` flags (`"FQC"`, `"R"`, `"SUS"`, `"QCI"`) as well as failure, biofouling pre-clean audit, or sensor-malfunction language across `ActivityCommentText`, `ResultLaboratoryCommentText`, `ResultCommentText`, `ResultDetectionConditionText`, and `ResultMeasureValue_original` (the character copy of `ResultMeasureValue` prior to numeric coercion).
 
-After auditing phycocyanin-specific WQP comment strings to exclude benign environmental notes (such as `"DO probe unstable"`, `"warm day"`, `"broken clouds"`, or unrelated selenium/pH regulatory exceedances), we match the following case-insensitive phrases: `"beyond accept"`, `"cancelled"`, `"contaminat"`, `"error"`, `"fail"`, `"improper"`, `"instrument down"`, `"interference"`, `"invalid"`, `"no result"`, `"no sample"`, `"no test"`, `"not accept"`, `"outside of accept"`, `"problem"`, `"questionable"`, `"suspect"`, `"unable"`, `"violation"`, `"reject"`, `"no data"`, `"value extrapolated"`, `"criteria exceed"`, `"biased"`, `"parameter not required"`, `"not visited"`, `"warm sample"`, `"broken bottle"`, `"broken cooler"`, `"received broken"`, `"broken sensor"`, `"time not documented"`, `"wiper stopped"`, `"wiper not parked"`, `"sonde out of water"`, `"sonde stopped recording"`, `"stopped working"`, `"not working"`, `"off scale"`, and `"censored"`.
+Following continuous monitoring QA conventions (Wagner et al., 2006) and phycocyanin WQP comment screening—while preserving benign environmental notes such as `"DO probe unstable"`, `"warm day"`, `"broken clouds"`, or unrelated selenium/pH criteria—we exclude `"PreClean"` biofouling/drift checks, non-deployed streambank audits, and `"not logging"` / `"readings will not settle"` notes alongside standard failure phrases: `"beyond accept"`, `"cancelled"`, `"contaminat"`, `"error"`, `"fail"`, `"improper"`, `"instrument down"`, `"interference"`, `"invalid"`, `"no result"`, `"no sample"`, `"no test"`, `"not accept"`, `"outside of accept"`, `"problem"`, `"questionable"`, `"suspect"`, `"unable"`, `"violation"`, `"reject"`, `"no data"`, `"value extrapolated"`, `"criteria exceed"`, `"biased"`, `"parameter not required"`, `"not visited"`, `"warm sample"`, `"broken bottle"`, `"broken cooler"`, `"received broken"`, `"broken sensor"`, `"time not documented"`, `"wiper stopped"`, `"wiper not parked"`, `"sonde out of water"`, `"sonde stopped recording"`, `"not logging"`, `"not recording"`, `"not deployed"`, `"audit at streambank"`, `"preclean"`, `"pre-clean"`, `"readings will not settle"`, `"reading high on bga"`, `"stopped working"`, `"not working"`, `"off scale"`, and `"censored"`.
 
-Below are pie charts summarizing failure phrase detections for each column that contained matches (note that detections are not mutually exclusive):
+Below are pie charts summarizing failure phrase and qualifier detections for each column that contained matches (note that detections are not mutually exclusive):
 
 <br>
 
 #### ActivityCommentText fail detects
 
 <img src="3_harmonize/out/phyco_ActivityCommentText_fail_pie.png" alt="ActivityCommentText failure detects" width="650"/>
+
+#### MeasureQualifierCode fail detects
+
+<img src="3_harmonize/out/phyco_MeasureQualifierCode_fail_pie.png" alt="MeasureQualifierCode failure detects" width="650"/>
 
 #### ResultCommentText fail detects
 
@@ -360,7 +366,7 @@ step_6_dropped <- filter(step_data, reorder == step_counter) %>%
   pull(number_dropped)
 ```
 
-Method detection limits (MDLs) are cleaned identically to prior AquaMatch parameters. Where numeric values are `NA`, non-detect indicators (`"non-detect"`, `"not detect"`, `"non detect"`, `"undetect"`, `"below"`, `"Present <QL"`, `"ND"`, `"nd"`) trigger substitution from `DetectionQuantitationLimitMeasure.MeasureValue`, and `<` numeric qualifiers in `ResultMeasureValue_original` are parsed directly. Imputed non-detects are drawn uniformly between `0` and `0.5 * MDL`, while preserving units from `DetectionQuantitationLimitMeasure.MeasureUnitCode` when `ResultMeasure.MeasureUnitCode` is blank.
+Method detection limits (MDLs) are cleaned following AquaMatch conventions, with two phycocyanin-specific safeguards: in addition to `NA` values carrying non-detect indicators (`"non-detect"`, `"not detect"`, `"non detect"`, `"undetect"`, `"below"`, `"Present <QL"`, `"ND"`, `"nd"`) or `<` numeric text in `ResultMeasureValue_original`, numeric zeros explicitly flagged as censored (`MeasureQualifierCode == "U"` or non-detect text in `ResultDetectionConditionText`, e.g., `EPA_R7_WQX` `"Below Reporting Limit"`) are imputed when their reported limit is strictly positive (`MDL > 0`), drawing uniformly between `0` and `0.5 * MDL` while preserving units from `DetectionQuantitationLimitMeasure.MeasureUnitCode` when `ResultMeasure.MeasureUnitCode` is blank. Zero-valued limits (`LRL = 0` or `<0`) are left unadjusted rather than passed to `runif(0, 0)`.
 
 The `mdl_flag` column records `0` (unadjusted at/above MDL), `1` (imputed using EPA `0` to `0.5 * MDL`), or `2` (reported numeric value below MDL, unadjusted).
 
@@ -450,7 +456,7 @@ step_8_dropped <- filter(step_data, reorder == step_counter) %>%
   pull(number_dropped)
 ```
 
-Similarly, unadjusted records containing `>` qualifiers and numeric text are parsed by stripping `>`, `=`, and `*` characters (`greater_flag = 1`), leaving all other records with `greater_flag = 0`.
+Similarly, unadjusted records containing `>` qualifiers in `ResultMeasureValue_original` (stripping `>`, `=`, and `*`), as well as `NA` records marked `"Present Above Quantification Limit"` in `ResultDetectionConditionText` with a positive `DetectionQuantitationLimitMeasure.MeasureValue`, are recovered and flagged (`greater_flag = 1`), leaving all other records with `greater_flag = 0`.
 
 `r step_8_dropped` rows are removed, leaving `r step_8_rows` rows remaining.
 
@@ -538,7 +544,7 @@ step_10_dropped <- filter(step_data, reorder == step_counter) %>%
   pull(number_dropped)
 ```
 
-Each parameter group is converted to a single canonical unit using the conversion table below: mass concentrations (`ug/l`, `ug/L`, `mg/m3`, `ppb`, `mg/L`, `mg/l`, `ppm`, `ug/ml`, `ug/mL`, `mg/cm3`) convert to `"ug/L"`; relative fluorescence units retain `"RFU"` or `"IVFU"`; and cell-density units (`#/mL`, `#/ml`, `cells/mL`) normalize to `"#/mL"`.
+Each parameter group is converted to a single canonical unit using the conversion table below: laboratory and probe mass concentrations (`ug/l`, `ug/L`, `mg/m3`, `ppb`, `mg/L`, `mg/l`, `ppm`, `ug/ml`, `ug/mL`, `mg/cm3`) convert to `"ug/L"`; relative fluorescence units retain `"RFU"` or `"IVFU"`; and cell-density units (`#/mL`, `#/ml`, `cells/mL`) normalize to `"#/mL"`. Note that `Phycocyanin` and `Phycocyanin (probe)` share `"ug/L"` as `harmonized_units` while remaining strictly segregated in the `parameter` column.
 
 ```{r echo=FALSE, message = FALSE}
 phyco_unit_table %>%
@@ -637,16 +643,16 @@ step_12_dropped <- filter(step_data, reorder == step_counter) %>%
   pull(number_dropped)
 ```
 
-In preparation for tiering, clearly misassigned non-phycocyanin laboratory methods (e.g., Standard Methods `4500-P B` phosphorus sample preparation) are filtered out. Remaining records are assigned to three analytical method tiers reflecting cross-provider comparability and vulnerability to optical matrix artifacts:
+In preparation for tiering, clearly misassigned non-phycocyanin laboratory methods (Standard Methods `4500-P B` phosphorus sample preparation) are filtered out. Remaining records are assigned to three analytical method tiers separating documented aqueous pigment extraction protocols from unextracted *in situ* optical sensors and missing or incompatible method entries:
 
 <br>
 
 <!-- Table created with https://www.tablesgenerator.com/markdown_tables -->
 | Tier | Name | Description | Phycocyanin Details |
 |---|---|---|---|
-| 0 | Restrictive | Data that are verifiably self-similar across organizations and time-periods and can be considered highly reliable | Laboratory extractive benchtop fluorometry, spectrophotometry, and HPLC (`ug/L`; e.g., USGS p-code `52905` / `SP012` / `FL083`, `MNPCA` modified Otsuki et al. (1994), `MDEQ_WQ_WQX` HPLC). Cell lysis extracts pigment into solution, eliminating *in vivo* cellular packaging, light history/quenching, and temperature effects (Horváth et al., 2013; Kasinak et al., 2015). |
-| 1 | Narrowed | Data with documented instrumentation/SOPs that may exhibit matrix-dependent bias across deployments | Documented *in situ* optical fluorometric probes/sondes (`YSI EXO`, `YSI 6131`, `Multiparameter Water Quality Sonde`, USGS p-codes `32319`, `32321`, `32329`, `32335`, `95201`--`95204`) and documented optical lab fluorometry/spectrometry lacking explicit extraction confirmation. Subject to inverse temperature quenching (~1% per deg C; Watras et al., 2017), turbidity attenuation, and FDOM/chlorophyll-*a* spectral cross-talk (Zamyadi et al., 2012; Bertone et al., 2018; Foster et al., 2022). |
-| 2 | Inclusive | Records with missing, generic (`LOCAL`, `Unknown`), or misapplied method metadata | Unspecified methods (`NA`), adapted chlorophyll-*a* method identifiers (`445.0` on phycocyanin probes), or unverified probe entries without instrument/SOP metadata. |
+| 0 | Restrictive | Data that are verifiably self-similar across organizations and time-periods and can be considered highly reliable | Reserved strictly for verified extractive laboratory `Phycocyanin` assays in `ug/L` with documented aqueous buffer extraction and cell-lysis protocols (`USGS` p-code `52905` / `SP012` [Zimba, 2012] / `FL083` [Kasinak et al., 2015]; `UNC_IMS` GF/F filter 650/695 nm fluorometry [Kasinak et al., 2015]; `EPA_R7_WQX` `2338.22A` [Kasinak et al., 2015]; `MNPCA` modified Otsuki et al., 1994). Cell lysis releases water-soluble biliproteins into solution, removing *in vivo* cellular packaging, quenching, and temperature bias (Horváth et al., 2013; Kasinak et al., 2015). |
+| 1 | Narrowed | Data with documented instrumentation/SOPs that may exhibit matrix-dependent bias across deployments | Documented laboratory optical assays lacking published cell-lysis efficiency or dichromatic Chl-*a*/turbidity correction verification (`LADEQWPD_WQX` `MCGLYNN METHOD-PC`, `MASSDEP` `FLUOROMETRY`), OR documented *in situ* optical fluorometers/sondes (`YSI EXO`, `YSI 6131`, `Turner Cyclops-7F`, `Hydrolab`, `Multiparameter Sonde`, USGS sensor p-codes `32319`, `32321`, `95202`, `95204`) across `Phycocyanin (probe)`, `Phycocyanin relative fluorescence`, and `Phycocyanin cell density`. *In vivo* optical records are susceptible to non-photochemical quenching (Rousso et al., 2021), temperature quenching (~1% per deg C; Watras et al., 2017), turbidity/FDOM cross-talk (Zamyadi et al., 2012; Bertone et al., 2018; Foster et al., 2022), and organization-specific linear factory calibrations. |
+| 2 | Inclusive | Records with missing, generic (`NA`, `FLD`), or misapplied method metadata | Unspecified field/lab methods (`NA`, `MNPCA FLD`), misapplied 90% acetone chlorophyll-*a* methods (`AZDEQ_SW` `EPA 445`, `USEPA` `445.0`) that denature water-soluble phycobiliproteins (Zimba, 2012), and `MDEQ_WQ_WQX` `PHYCOCYANIN-MDEQ-WQ` (100% censored non-detects reported at an unverified `0.5 mg/L` = `500 ug/L` LRL without published chromatographic extraction documentation). |
 
 <br>
 
@@ -703,11 +709,11 @@ step_13_dropped <- filter(step_data, reorder == step_counter) %>%
   pull(number_dropped)
 ```
 
-Next, `field_flag` cross-checks whether sample collection metadata (`ActivityTypeCode`, `SampleCollectionMethod.MethodName`, `SampleCollectionEquipmentName`) and `ResultSampleFractionText` agree with the assigned analytical tier:
+Next, `field_flag` cross-checks whether sample collection metadata (`ActivityTypeCode`, `SampleCollectionMethod.MethodName`, `SampleCollectionEquipmentName`) and `ResultSampleFractionText` agree with the assigned parameter category and analytical tier:
 
-+ `field_flag = 0` (**Reasonable**): Extractive lab Tier 0 records collected with discrete water-sampling gear (`grab`, `bottle`, `kemmerer`, `van dorn`, `filter`, `Sample-Routine`), or documented optical Tier 1 sonde records with explicit field/sensor metadata (`Field Msr/Obs`, `Probe/Sensor`, `Sonde`) and non-dissolved fraction.
-+ `field_flag = 1` (**Suspect**): Tier 0 records reporting sensor/field-only collection, or Tier 1 optical probe records reporting `"Dissolved"` sample fraction or bottle/grab sampling without documented *in situ* sensor deployment.
-+ `field_flag = 2` (**Inconclusive**): Tier 2 records or Tier 0/1 records where sample collection metadata are `"Unknown"` or `NA`.
++ `field_flag = 0` (**Discrete / consistent modality**): Discrete grab, bottle, Kemmerer, Van Dorn, or filter sampling for laboratory `Phycocyanin` (Tiers 0--1), or *in situ* sonde / discrete non-`"Dissolved"` subsample deployments for documented optical sensor parameters (`Phycocyanin (probe)`, `Phycocyanin relative fluorescence`, `Phycocyanin cell density`, Tier 1).
++ `field_flag = 1` (**Integrated composite, pump, or modality/fraction mismatch**): Depth-integrated, cross-sectional EWI/multiple-vertical, or peristaltic/diaphragm pump samples (which vertically mix surface-buoyant cyanobacterial scums relative to optical sensing depths and can shear colonial filaments), as well as `Probe/Sensor` equipment listed under laboratory `Phycocyanin` or `"Dissolved"` sample fraction reported on an *in vivo* optical probe.
++ `field_flag = 2` (**Inconclusive**): Tier 2 records or Tier 0--1 records where collection equipment and activity metadata are `"Unknown"`, `"Other"`, or `NA`.
 
 No records are dropped in this step (`r step_13_dropped` rows dropped), leaving `r step_13_rows` rows remaining.
 
@@ -753,14 +759,15 @@ step_14_dropped <- filter(step_data, reorder == step_counter) %>%
 
 For phycocyanin, `misc_flag` identifies two distinct data conditions that are held out from simultaneous replicate averaging during aggregation so end users can filter them explicitly:
 
-+ `misc_flag = 0`: Instantaneous/discrete observations within standard surface-water calibration bounds.
++ `misc_flag = 0`: Instantaneous/discrete observations within linear sensor calibration and non-scum surface-water bounds.
 + `misc_flag = 1`: Continuous sonde daily `"Mean"` summary rows (`StatisticalBaseCode == "Mean"`), distinguishing multi-hour temporal averages from instantaneous point observations.
-+ `misc_flag = 2`: Extreme bloom/scum concentrations exceeding standard linear optical calibration bounds (`> 2,000 ug/L`, `> 100 RFU` or `IVFU`, or `> 280,000 #/mL`; Bertone et al., 2018; Foster et al., 2022; Chorus and Welker, 2021). Note that records exceeding both criteria receive `misc_flag = 2`.
++ `misc_flag = 2`: Extreme hypertrophic blooms or sensor linear-range ceiling exceedances (`> 1,000 ug/L` for extractive `Phycocyanin` per Chorus and Welker, 2021; `> 100 ug/L` for `Phycocyanin (probe)` and `> 100 RFU` matching YSI EXO linear ceilings per Zamyadi et al., 2012 and Foster et al., 2022; `> 200 IVFU` and `> 280,000 #/mL` matching YSI 6131 full-scale range). Note that records meeting both `misc_flag = 1` and `misc_flag = 2` criteria receive `misc_flag = 2`.
 
 | **Parameter** | **Units** | **Flag = 1** | **Flag = 2** |
 |---|---|---|---|
-| Phycocyanin | ug/L | `StatisticalBaseCode == "Mean"` | `> 2,000 ug/L` |
-| Phycocyanin relative fluorescence | RFU, IVFU | `StatisticalBaseCode == "Mean"` | `> 100 RFU` or `> 100 IVFU` |
+| Phycocyanin | ug/L | `StatisticalBaseCode == "Mean"` | `> 1,000 ug/L` |
+| Phycocyanin (probe) | ug/L | `StatisticalBaseCode == "Mean"` | `> 100 ug/L` |
+| Phycocyanin relative fluorescence | RFU, IVFU | `StatisticalBaseCode == "Mean"` | `> 100 RFU` or `> 200 IVFU` |
 | Phycocyanin cell density | #/mL | `StatisticalBaseCode == "Mean"` | `> 280,000 #/mL` |
 
 <br>
@@ -816,7 +823,13 @@ step_15_dropped <- filter(step_data, reorder == step_counter) %>%
   pull(number_dropped)
 ```
 
-Prior to finalizing the dataset, we remove physically impossible bulk-water phycocyanin mass values above `100,000 ug/L` (`100 mg/L` pure phycocyanin protein; reflecting sensor cell-density entries misfiled under `ug/L`) while retaining verified dissolved bloom/scum extracts up to `41,000 ug/L` under `misc_flag = 2`. We also remove any sampling depths `> 592 m`, the maximum lake depth in the United States (Larson, 1972).
+Prior to finalizing the dataset, we apply modality-specific physical upper bounds rather than a single global `ug/L` cutoff, reflecting the distinct optical saturation and extraction regimes across measurement groups:
+
+- **`Phycocyanin` (extractive laboratory pigment):** remove values `> 50,000 ug/L` (retaining extreme verified dissolved bloom/scum extracts up to `41,000 ug/L` under `misc_flag = 2`).
+- **`Phycocyanin (probe)` (RWT-equivalent *in vivo* sensor output):** remove values `> 5,000 ug/L` (beyond commercial fluorometer linear/saturation ceilings; removing five saturated `POMO989_WQX` outliers and a `19,900 ug/L` `USGS-OH` data-entry typo).
+- **`Phycocyanin relative fluorescence` (`RFU`/`IVFU`):** remove values `> 2,000` (`RFU` or `IVFU`).
+- **`Phycocyanin cell density` (`#/mL`):** remove values `> 10,000,000 #/mL`.
+- **Sampling depths:** remove any sampling depths `> 592 m`, the maximum lake depth in the United States (Larson, 1972).
 
 `r step_15_dropped` rows are removed, leaving `r step_15_rows` rows remaining.
 
@@ -862,7 +875,7 @@ step_16_dropped <- filter(step_data, reorder == step_counter) %>%
 
 The final step of phycocyanin harmonization aggregates simultaneous observations (matching across the 26 grouping columns `parameter`, `OrganizationIdentifier`, `MonitoringLocationIdentifier`, `MonitoringLocationTypeName`, `ResolvedMonitoringLocationTypeName`, `ActivityStartDate`, `ActivityStartTime.Time`, `ActivityStartTime.TimeZoneCode`, `harmonized_tz`, `harmonized_local_time`, `harmonized_utc`, `ActivityStartDateTime`, `harmonized_top_depth_value`, `harmonized_top_depth_unit`, `harmonized_bottom_depth_value`, `harmonized_bottom_depth_unit`, `harmonized_discrete_depth_value`, `harmonized_discrete_depth_unit`, `depth_flag`, `mdl_flag`, `approx_flag`, `greater_flag`, `tier`, `field_flag`, `misc_flag`, and `harmonized_units`) into mean values (`harmonized_value`), replicate counts (`harmonized_row_count`), and coefficients of variation (`harmonized_value_cv`), tagged by `subgroup_id` for back-joining with `p3_phyco_preagg_grouped`.
 
-As with CDOM, records with `misc_flag` equal to `1` (daily means) or `2` (extreme bloom/scum values exceeding calibration ceilings) are held out from grouping and re-appended with `NA` in `subgroup_id`, `harmonized_row_count`, and `harmonized_value_cv`.
+As with CDOM, records with `misc_flag` equal to `1` (daily means) or `2` (extreme hypertrophic or sensor-saturation ceiling exceedances) are held out from grouping and re-appended with `NA` in `subgroup_id`, `harmonized_row_count`, and `harmonized_value_cv`.
 
 `r step_16_dropped` rows are aggregated away, leaving `r step_16_rows` rows remaining in the final harmonized phycocyanin dataset.
 

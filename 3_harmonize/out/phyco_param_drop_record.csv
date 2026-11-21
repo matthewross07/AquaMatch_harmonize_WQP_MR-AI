@@ -2,5 +2,7 @@ CharacteristicName,ResultAnalyticalMethod.MethodName,USGSPCode,ResultAnalyticalM
 Phycocyanin (probe),NA,NA,NA,NA,ug/L,NA,60113
 Phycocyanin (probe relative fluorescence),Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,RFU,NA,10245
 Phycocyanin (probe relative fluorescence),NA,NA,NA,NA,RFU,NA,9728
-Phycocyanin,NA,NA,NA,NA,ug/L,NA,2494
+Phycocyanin,NA,NA,NA,NA,ug/L,NA,3253
 Phycocyanin,Multiparameter Water Quality Sonde,NA,EXO WQ sonde,YSI,RFU,NA,260
+Phycocyanin,Phycocyanin in Water by Fluorometry,NA,FLUOROMETRY,MASSDEP,mg/m3,None,3
+Phycocyanins,NA,32319,NA,NA,ug/l,Total,1
